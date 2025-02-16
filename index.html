@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landscape Gardening Services</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+
+        a {
+            color: #27ae60;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Header Section */
+        header {
+            background: url('https://via.placeholder.com/1920x400') no-repeat center center/cover;
+            color: white;
+            text-align: center;
+            padding: 100px 20px;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 0.5em;
+        }
+
+        header p {
+            font-size: 1.2em;
+        }
+
+        /* Navigation Bar */
+        nav {
+            background: #2c3e50;
+            color: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        nav a {
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Main Content Sections */
+        section {
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        /* About Us Section */
+        #about {
+            background: #fff;
+        }
+
+        /* Services Section */
+        #services {
+            background: #f4f4f4;
+        }
+
+        #services .service-item {
+            display: inline-block;
+            width: 30%;
+            margin: 1%;
+            vertical-align: top;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Portfolio Section */
+        #portfolio img {
+            width: 100%;
+            height: auto;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        /* Testimonials Section */
+        #testimonials {
+            background: #2c3e50;
+            color: white;
+        }
+
+        #testimonials blockquote {
+            font-style: italic;
+            margin: 20px 0;
+        }
+
+        /* Contact Section */
+        #contact form {
+            max-width: 600px;
+            margin: auto;
+        }
+
+        #contact input, #contact textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #contact button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        #contact button:hover {
+            background: #21914e;
+        }
+
+        /* Footer */
+        footer {
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <h1>Welcome to GreenThumb Landscaping</h1>
+        <p>Your Trusted Partner in Garden Design & Maintenance</p>
+    </header>
+
+    <!-- Navigation Bar -->
+    <nav>
+        <a href="#about">About Us</a>
+        <a href="#services">Services</a>
+        <a href="#portfolio">Portfolio</a>
+        <a href="#testimonials">Testimonials</a>
+        <a href="#contact">Contact</a>
+    </nav>
+
+    <!-- About Us Section -->
+    <section id="about">
+        <div class="container">
+            <h2>About Us</h2>
+            <p>GreenThumb Landscaping has been providing high-quality garden design and maintenance services for over 10 years. Our team of experts is dedicated to creating beautiful outdoor spaces that reflect your personal style.</p>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section id="services">
+        <div class="container">
+            <h2>Our Services</h2>
+            <div class="service-item">
+                <h3>Garden Design</h3>
+                <p>We create stunning garden designs tailored to your needs and preferences.</p>
+            </div>
+            <div class="service-item">
+                <h3>Lawn Care</h3>
+                <p>From mowing to fertilization, we ensure your lawn stays healthy and green.</p>
+            </div>
+            <div class="service-item">
+                <h3>Hardscaping</h3>
+                <p>We specialize in patios, walkways, and other hardscape features to enhance your outdoor space.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Portfolio Section -->
+    <section id="portfolio">
+        <div class="container">
+            <h2>Our Portfolio</h2>
+            <img src="https://via.placeholder.com/400x300" alt="Garden Design">
+            <img src="https://via.placeholder.com/400x300" alt="Lawn Care">
+            <img src="https://via.placeholder.com/400x300" alt="Hardscaping">
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section id="testimonials">
+        <div class="container">
+            <h2>What Our Clients Say</h2>
+            <blockquote>
+                "GreenThumb Landscaping transformed our backyard into a beautiful oasis. Highly recommend!"
+                <footer>- Jane Doe</footer>
+            </blockquote>
+            <blockquote>
+                "Professional, reliable, and creative. We couldn't be happier with the results."
+                <footer>- John Smith</footer>
+            </blockquote>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact">
+        <div class="container">
+            <h2>Contact Us</h2>
+            <form action="#" method="post">
+                <input type="text" name="name" placeholder="Your Name" required>
+                <input type="email" name="email" placeholder="Your Email" required>
+                <textarea name="message" placeholder="Your Message" rows="5" required></textarea>
+                <button type="submit">Send Message</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2023 GreenThumb Landscaping. All rights reserved.</p>
+    </footer>
+
+</body>
+</html>
