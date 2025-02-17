@@ -9,76 +9,94 @@
         font-family: Arial, sans-serif;
         margin: 20px;
     }
-    .header {
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 16px;
-    }
     form {
         max-width: 400px;
-        margin: 0 auto;
+        margin: 20px auto;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
     }
     label {
         display: block;
-        margin-top: 10px;
+        margin-bottom: 8px;
     }
-    input {
+    input[type="text"], input[type="email"] {
         width: 100%;
         padding: 8px;
-        box-sizing: border-box;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
     }
-    button {
-        margin-top: 20px;
-        padding: 10px 20px;
+    input[type="submit"] {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    input[type="submit"]:hover {
+        background-color: #45a049;
+    }
+    .header {
+        text-align: center;
+        margin-bottom: 20px;
     }
     .footer {
         text-align: center;
         margin-top: 20px;
-        font-size: 14px;
     }
 </style>
 </head>
 <body>
 
-<div class="header">This form was created for free by QWEN and published for free online using GitHub pages.</div>
+<div class="header">
+    <h2>This form was created for free by QWEN and published for free online using GitHub pages.</h2>
+</div>
 
-<form id="userForm">
+<form id="userForm" onsubmit="return validateForm()">
     <label for="forename">Forename:</label>
-    <input type="text" id="forename" name="forename" required>
+    <input type="text" id="forename" name="forename" placeholder="Enter your forename">
 
     <label for="surname">Surname:</label>
-    <input type="text" id="surname" name="surname" required>
+    <input type="text" id="surname" name="surname" placeholder="Enter your surname">
 
     <label for="email">Email Address:</label>
-    <input type="email" id="email" name="email" required>
+    <input type="email" id="email" name="email" placeholder="Enter your email address">
 
-    <button type="submit">Submit</button>
+    <input type="submit" value="Submit">
 </form>
 
-<div class="footer">The Js code checks for a zero entry in forename and surname fields, and that the email provided is in the correct format.</div>
+<div class="footer">
+    <p>the Js code checks for a zero entry in forename and surname fields, and that the email provided is in the correct format</p>
+    <p><a href="prompts.txt" target="_blank">prompts</a></p>
+</div>
 
 <script>
-document.getElementById('userForm').addEventListener('submit', function(event) {
-    event.preventDefault();
-
+function validateForm() {
     const forename = document.getElementById('forename').value.trim();
     const surname = document.getElementById('surname').value.trim();
     const email = document.getElementById('email').value.trim();
 
-    if (!forename || !surname) {
-        alert("Forename and Surname fields cannot be blank.");
-        return;
+    if (forename === '') {
+        alert('Forename must not be blank.');
+        return false;
     }
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-        alert("Please enter a valid email address.");
-        return;
+    if (surname === '') {
+        alert('Surname must not be blank.');
+        return false;
     }
 
-    alert("Form submitted successfully!");
-    this.reset();
-});
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert('Please enter a valid email address.');
+        return false;
+    }
+
+    alert('Form submitted successfully!');
+    return true;
+}
 </script>
 
 </body>
