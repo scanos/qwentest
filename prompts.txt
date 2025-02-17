@@ -9,3 +9,11 @@ Put a header above the form stating "This form was created for free by QWEN and 
 Put a header above the form stating "This form was created for free by QWEN and published for free online using GitHub pages." Put a header under the form stating "the Js code checks for a zero entry in forename and surname fields,and that the email provided is in the correct format"
 
 Create a web link named prompts to a file named prompts.txt which is in the same folder as index.html
+
+5.Help me create a web form to capture forename surname and email address. Provide to check email is in the correct format and that the forename and surname fields are not blank.
+Put a header above the form stating "This form was created for free by QWEN and published for free online using GitHub pages." Put a header under the form stating "the Js code checks for a zero entry in forename and surname fields,and that the email provided is in the correct format"
+
+Create a web link named prompts to a file named prompts.txt which is in the same folder as index.html
+
+Before the popup window appears create a html table showing the values of forename, surname and email address . 
+Under this table create a heading which states "this is how data is stored in a SQL database table using a language such as Python or php"
