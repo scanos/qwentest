@@ -5,15 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QWEN Web Form</title>
 <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    form { display: flex; flex-direction: column; max-width: 400px; margin: 0 auto; }
-    input { margin-bottom: 10px; padding: 5px; }
-    button { padding: 10px; background-color: #28a745; color: white; border: none; cursor: pointer; }
-    button:hover { background-color: #218838; }
-    table { margin: 20px auto; border-collapse: collapse; width: 50%; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background-color: #f4f4f4; }
-    a { display: block; margin-top: 10px; text-decoration: none; color: #007bff; }
+  table {
+    border-collapse: collapse;
+    width: 50%;
+    margin-bottom: 20px;
+  }
+  table, th, td {
+    border: 1px solid black;
+  }
+  th, td {
+    padding: 8px;
+    text-align: left;
+  }
 </style>
 </head>
 <body>
@@ -21,52 +24,55 @@
 <h2>This form was created for free by QWEN and published for free online using GitHub pages.</h2>
 
 <form id="userForm">
-    <label for="forename">Forename:</label>
-    <input type="text" id="forename" name="forename" required>
-    
-    <label for="surname">Surname:</label>
-    <input type="text" id="surname" name="surname" required>
-    
-    <label for="email">Email:</label>
-    <input type="email" id="email" name="email" required>
-    
-    <button type="submit">Submit</button>
+  <label for="forename">Forename:</label><br>
+  <input type="text" id="forename" name="forename"><br><br>
+  
+  <label for="surname">Surname:</label><br>
+  <input type="text" id="surname" name="surname"><br><br>
+  
+  <label for="email">Email:</label><br>
+  <input type="email" id="email" name="email"><br><br>
+  
+  <input type="button" value="Submit" onclick="validateForm()">
 </form>
 
-<a href="prompts.txt" target="_blank">Prompts</a>
+<h3>the Js code checks for a zero entry in forename and surname fields, and that the email provided is in the correct format</h3>
 
-<h3 style="margin-top: 20px;">The Js code checks for a zero entry in forename and surname fields, and that the email provided is in the correct format.</h3>
+<a href="prompts.txt" target="_blank">prompts</a>
 
-<div id="output"></div>
+<div id="result"></div>
 
 <script>
-document.getElementById('userForm').addEventListener('submit', function(event) {
-    event.preventDefault();
+function validateForm() {
+  const forename = document.getElementById('forename').value.trim();
+  const surname = document.getElementById('surname').value.trim();
+  const email = document.getElementById('email').value.trim();
 
-    const forename = document.getElementById('forename').value.trim();
-    const surname = document.getElementById('surname').value.trim();
-    const email = document.getElementById('email').value.trim();
+  if (forename === '' || surname === '') {
+    alert("Forename and Surname must not be blank.");
+    return false;
+  }
 
-    if (!forename || !surname) {
-        alert("Forename and Surname fields cannot be blank.");
-        return;
-    }
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(email)) {
+    alert("Please enter a valid email address.");
+    return false;
+  }
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-        alert("Please enter a valid email address.");
-        return;
-    }
+  // Display data in a table before showing the popup
+  const resultDiv = document.getElementById('result');
+  resultDiv.innerHTML = `
+    <table>
+      <tr><th>Forename</th><td>${forename}</td></tr>
+      <tr><th>Surname</th><td>${surname}</td></tr>
+      <tr><th>Email</th><td>${email}</td></tr>
+    </table>
+    <h4>this is how data is stored in a SQL database table using a language such as Python or php</h4>
+  `;
 
-    const outputDiv = document.getElementById('output');
-    outputDiv.innerHTML = `
-        <table>
-            <tr><th>Forename</th><th>Surname</th><th>Email</th></tr>
-            <tr><td>${forename}</td><td>${surname}</td><td>${email}</td></tr>
-        </table>
-        <h3>This is how data is stored in a SQL database table.</h3>
-    `;
-});
+  // Show confirmation popup after displaying the table
+  alert(`Form submitted successfully!\n\nForename: ${forename}\nSurname: ${surname}\nEmail: ${email}`);
+}
 </script>
 
 </body>
