@@ -38,7 +38,7 @@
     border-radius: 3px 0 0 3px;
   }
   .prev:hover, .next:hover {
-    background-color: rgba(0,0,0,1);
+    background-color: rgba(0,0,0,0.9);
   }
 </style>
 </head>
@@ -46,31 +46,25 @@
 
 <div class="carousel">
   <img class="active" src="https://github.com/scanos/qwentest/heyjude.jpg" alt="Image 1">
-  <img src="" alt="Image 2">
+  <img src="heyjude.jpg" alt="Image 2">
   <img src="" alt="Image 3">
-  
+
   <span class="prev" onclick="changeSlide(-1)">&#10094;</span>
   <span class="next" onclick="changeSlide(1)">&#10095;</span>
 </div>
 
 <script>
-  let slideIndex = 0;
+  let currentSlide = 0;
   const slides = document.querySelectorAll('.carousel img');
 
-  function showSlide(index) {
-    if (index >= slides.length) {slideIndex = 0}
-    if (index < 0) {slideIndex = slides.length - 1}
-    slides.forEach(slide => slide.classList.remove('active'));
-    slides[slideIndex].classList.add('active');
-  }
-
   function changeSlide(step) {
-    slideIndex += step;
-    showSlide(slideIndex);
+    slides[currentSlide].classList.remove('active');
+    currentSlide = (currentSlide + step + slides.length) % slides.length;
+    slides[currentSlide].classList.add('active');
   }
 
-  // Initialize the carousel
-  showSlide(slideIndex);
+  // Auto slide every 3 seconds
+  setInterval(() => changeSlide(1), 3000);
 </script>
 
 </body>
