@@ -5,66 +5,94 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image Carousel</title>
 <style>
-  .carousel {
-    width: 600px;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .carousel-container {
+    width: 100%;
+    max-width: 600px;
     margin: auto;
     overflow: hidden;
     position: relative;
   }
-  .carousel img {
+  .carousel-slide {
+    display: flex;
+    width: 300%;
+    transition: transform 0.5s ease-in-out;
+  }
+  .carousel-slide img {
     width: 100%;
-    display: none;
+    object-fit: cover;
   }
-  .carousel img.active {
-    display: block;
-  }
-  .prev, .next {
-    cursor: pointer;
+  .carousel-indicators {
     position: absolute;
-    top: 50%;
-    width: auto;
-    padding: 16px;
-    margin-top: -22px;
-    color: white;
-    font-weight: bold;
-    font-size: 18px;
-    transition: 0.6s ease;
-    border-radius: 0 3px 3px 0;
-    user-select: none;
-    background-color: rgba(0,0,0,0.8);
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
   }
-  .next {
-    right: 0;
-    border-radius: 3px 0 0 3px;
+  .carousel-indicator {
+    width: 15px;
+    height: 15px;
+    margin: 5px;
+    background-color: #bbb;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.3s;
   }
-  .prev:hover, .next:hover {
-    background-color: rgba(0,0,0,0.9);
+  .carousel-indicator.active {
+    background-color: #717171;
   }
 </style>
 </head>
 <body>
 
-<div class="carousel">
-  <img class="active" src="https://github.com/scanos/qwentest/heyjude.jpg" alt="Image 1">
-  <img src="heyjude.jpg" alt="Image 2">
-  <img src="" alt="Image 3">
-
-  <span class="prev" onclick="changeSlide(-1)">&#10094;</span>
-  <span class="next" onclick="changeSlide(1)">&#10095;</span>
+<div class="carousel-container">
+  <div class="carousel-slide" id="carouselSlide">
+    <img src="1.jpg" alt="Image 1">
+    <img src="2.jpg" alt="Image 2">
+    <img src="3.jpg" alt="Image 3">
+  </div>
+  <div class="carousel-indicators" id="carouselIndicators">
+    <div class="carousel-indicator active" data-index="0"></div>
+    <div class="carousel-indicator" data-index="1"></div>
+    <div class="carousel-indicator" data-index="2"></div>
+  </div>
 </div>
 
 <script>
-  let currentSlide = 0;
-  const slides = document.querySelectorAll('.carousel img');
+  const slideWidth = document.querySelector('.carousel-slide').children[0].clientWidth;
+  const carouselSlide = document.getElementById('carouselSlide');
+  const indicators = document.getElementById('carouselIndicators').children;
 
-  function changeSlide(step) {
-    slides[currentSlide].classList.remove('active');
-    currentSlide = (currentSlide + step + slides.length) % slides.length;
-    slides[currentSlide].classList.add('active');
+  let currentIndex = 0;
+
+  function updateCarousel(index) {
+    carouselSlide.style.transform = `translateX(${-index * slideWidth}px)`;
+    for (let i = 0; i < indicators.length; i++) {
+      indicators[i].classList.remove('active');
+    }
+    indicators[index].classList.add('active');
+    currentIndex = index;
   }
 
-  // Auto slide every 3 seconds
-  setInterval(() => changeSlide(1), 3000);
+  for (let i = 0; i < indicators.length; i++) {
+    indicators[i].addEventListener('click', () => updateCarousel(i));
+  }
+
+  // Auto play functionality
+  let autoPlayInterval = setInterval(() => {
+    const nextIndex = (currentIndex + 1) % indicators.length;
+    updateCarousel(nextIndex);
+  }, 3000);
+
+  // Pause on hover
+  const carouselContainer = document.querySelector('.carousel-container');
+  carouselContainer.addEventListener('mouseenter', () => clearInterval(autoPlayInterval));
+  carouselContainer.addEventListener('mouseleave', () => {
+    autoPlayInterval = setInterval(() => {
+      const nextIndex = (currentIndex + 1) % indicators.length;
+      updateCarousel(nextIndex);
+    }, 3000);
+  });
 </script>
 
 </body>
