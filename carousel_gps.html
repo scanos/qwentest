@@ -1,71 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Image GPS Data</title>
-    <script>
-        async function readImages() {
-            const tableBody = document.getElementById('table-body');
-            const fileInputs = document.querySelectorAll('input[type="file"]');
-
-            for (let i = 0; i < fileInputs.length; i++) {
-                const files = fileInputs[i].files;
-                for (let j = 0; j < files.length; j++) {
-                    const file = files[j];
-                    if (file.type.startsWith('image/jpeg')) {
-                        const exifData = await new Promise((resolve, reject) => {
-                            EXIF.getData(file, function () {
-                                resolve(EXIF.getAllTags(this));
-                            });
-                        });
-
-                        let gpsLatitude = '', gpsLongitude = '';
-                        if (exifData.GPSLatitude && exifData.GPSLongitude) {
-                            gpsLatitude = exifData.GPSLatitude;
-                            gpsLongitude = exifData.GPSLongitude;
-                        }
-
-                        const row = `
-                            <tr>
-                                <td>${file.name}</td>
-                                <td>${gpsLatitude}</td>
-                                <td>${gpsLongitude}</td>
-                            </tr>
-                        `;
-                        tableBody.innerHTML += row;
-                    }
-                }
-            }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Metadata Table</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-
-        window.onload = function () {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/jpeg';
-            fileInput.multiple = true;
-
-            fileInput.addEventListener('change', readImages);
-
-            // Append the file input to the body (hidden)
-            fileInput.style.display = 'none';
-            document.body.appendChild(fileInput);
-
-            // Trigger the file picker
-            fileInput.click();
-        };
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
 </head>
 <body>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>Image Name</th>
-                <th>GPS Latitude</th>
-                <th>GPS Longitude</th>
-            </tr>
-        </thead>
-        <tbody id="table-body">
-        </tbody>
+    <h2>Image Metadata</h2>
+    <table id="imageTable">
+        <tr>
+            <th>Image Name</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+        </tr>
     </table>
+
+    <script>
+        async function getImageMetadata() {
+            const imageTable = document.getElementById('imageTable');
+            
+            // Fetch directory contents (assuming a server-side endpoint or mock data)
+            const directoryContents = await fetch('/directory_contents'); // Replace with actual API endpoint
+            const files = await directoryContents.json(); // Assuming it returns an array of file names
+
+            files.forEach(async fileName => {
+                if (fileName.endsWith('.jpg')) {
+                    const img = new Image();
+                    img.src = URL.createObjectURL(await fetchFileAsBlob(fileName));
+                    img.onload = () => {
+                        EXIF.getData(img, () => {
+                            const latitude = EXIF.getTag(img, 'GPSLatitude');
+                            const longitude = EXIF.getTag(img, 'GPSLongitude');
+                            addRowToTable(imageTable, fileName, latitude, longitude);
+                        });
+                    };
+                }
+            });
+        }
+
+        function fetchFileAsBlob(fileName) {
+            return fetch(fileName).then(response => response.blob());
+        }
+
+        function addRowToTable(table, fileName, latitude, longitude) {
+            const row = table.insertRow();
+            const cell1 = row.insertCell(0);
+            const cell2 = row.insertCell(1);
+            const cell3 = row.insertCell(2);
+
+            cell1.textContent = fileName;
+            cell2.textContent = latitude || 'N/A';
+            cell3.textContent = longitude || 'N/A';
+        }
+
+        // Load EXIF library dynamically
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js';
+        document.head.appendChild(script);
+
+        script.onload = () => {
+            getImageMetadata();
+        };
+    </script>
 </body>
 </html>
