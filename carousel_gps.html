@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Carousel with GPS Data</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <style>
+        .carousel-container {
+            width: 75%;
+            margin: auto;
+        }
+        .table-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Carousel -->
+    <div id="imageCarousel" class="carousel slide carousel-container" data-bs-ride="carousel">
+        <div class="carousel-inner">
+            <div class="carousel-item active">
+                <img src="1.jpg" class="d-block w-100" alt="Image 1">
+            </div>
+            <div class="carousel-item">
+                <img src="2.jpg" class="d-block w-100" alt="Image 2">
+            </div>
+            <div class="carousel-item">
+                <img src="3.jpg" class="d-block w-100" alt="Image 3">
+            </div>
+        </div>
+        <a class="carousel-control-prev" href="#imageCarousel" role="button" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        </a>
+        <a class="carousel-control-next" href="#imageCarousel" role="button" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        </a>
+    </div>
+
+    <!-- Table for Image Metadata -->
+    <div class="table-container">
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>GPS Latitude</th>
+                    <th>GPS Longitude</th>
+                </tr>
+            </thead>
+            <tbody id="imageData">
+                <tr>
+                    <td>1.jpg</td>
+                    <td id="gps1-lat">Loading...</td>
+                    <td id="gps1-lon">Loading...</td>
+                </tr>
+                <tr>
+                    <td>2.jpg</td>
+                    <td id="gps2-lat">Loading...</td>
+                    <td id="gps2-lon">Loading...</td>
+                </tr
