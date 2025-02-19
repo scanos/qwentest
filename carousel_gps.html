@@ -1,89 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Image Carousel and Metadata Table</title>
-<style>
-  .carousel {
-    width: 75vw;
-    margin: auto;
-    overflow: hidden;
-    position: relative;
-  }
+    <title>Image GPS Data</title>
+    <script>
+        async function readImages() {
+            const tableBody = document.getElementById('table-body');
+            const fileInputs = document.querySelectorAll('input[type="file"]');
 
-  .carousel img {
-    width: 100%;
-    display: none;
-  }
+            for (let i = 0; i < fileInputs.length; i++) {
+                const files = fileInputs[i].files;
+                for (let j = 0; j < files.length; j++) {
+                    const file = files[j];
+                    if (file.type.startsWith('image/jpeg')) {
+                        const exifData = await new Promise((resolve, reject) => {
+                            EXIF.getData(file, function () {
+                                resolve(EXIF.getAllTags(this));
+                            });
+                        });
 
-  .carousel img.active {
-    display: block;
-  }
+                        let gpsLatitude = '', gpsLongitude = '';
+                        if (exifData.GPSLatitude && exifData.GPSLongitude) {
+                            gpsLatitude = exifData.GPSLatitude;
+                            gpsLongitude = exifData.GPSLongitude;
+                        }
 
-  .table-container {
-    margin-top: 20px;
-    text-align: center;
-  }
+                        const row = `
+                            <tr>
+                                <td>${file.name}</td>
+                                <td>${gpsLatitude}</td>
+                                <td>${gpsLongitude}</td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    }
+                }
+            }
+        }
 
-  table {
-    margin: auto;
-    border-collapse: collapse;
-    width: 50%;
-  }
+        window.onload = function () {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/jpeg';
+            fileInput.multiple = true;
 
-  th, td {
-    border: 1px solid black;
-    padding: 8px;
-    text-align: center;
-  }
+            fileInput.addEventListener('change', readImages);
 
-  th {
-    background-color: #f2f2f2;
-  }
-</style>
+            // Append the file input to the body (hidden)
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+
+            // Trigger the file picker
+            fileInput.click();
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
 </head>
 <body>
-
-<div class="carousel">
-  <img src="1.jpg" class="active" alt="Image 1">
-  <img src="2.jpg" alt="Image 2">
-  <img src="3.jpg" alt="Image 3">
-</div>
-
-<div class="table-container">
-  <table>
-    <tr>
-      <th>Image Name</th>
-      <th>GPS Coordinates</th>
-    </tr>
-    <tr>
-      <td>1.jpg</td>
-      <td>(40.7128° N, 74.0060° W)</td>
-    </tr>
-    <tr>
-      <td>2.jpg</td>
-      <td>(34.0522° N, 118.2437° W)</td>
-    </tr>
-    <tr>
-      <td>3.jpg</td>
-      <td>(51.5074° N, 0.1278° W)</td>
-    </tr>
-  </table>
-</div>
-
-<script>
-  let currentIndex = 0;
-  const images = document.querySelectorAll('.carousel img');
-
-  function showNextImage() {
-    images[currentIndex].classList.remove('active');
-    currentIndex = (currentIndex + 1) % images.length;
-    images[currentIndex].classList.add('active');
-  }
-
-  setInterval(showNextImage, 3000); // Change image every 3 seconds
-</script>
-
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>GPS Latitude</th>
+                <th>GPS Longitude</th>
+            </tr>
+        </thead>
+        <tbody id="table-body">
+        </tbody>
+    </table>
 </body>
 </html>
