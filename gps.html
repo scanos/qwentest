@@ -2,68 +2,71 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Metadata Table</title>
-    <script>
-        async function fetchImagesAndMetadata() {
-            const url = 'https://scanos.github.io/qwentest/';
-            const response = await fetch(url);
-            if (!response.ok) {
-                console.error('Failed to fetch the directory listing.');
-                return;
-            }
-
-            const text = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, "text/html");
-            const links = Array.from(doc.querySelectorAll('a'))
-                .filter(a => a.href.endsWith('.jpg'))
-                .map(a => a.href);
-
-            const tableBody = document.getElementById('image-metadata-body');
-            for (const link of links) {
-                const fullUrl = new URL(link, url).href;
-                const img = new Image();
-                img.src = fullUrl;
-                img.onload = () => {
-                    const exifData = getExifData(img);
-                    const latLng = extractLatLng(exifData);
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${link}</td>
-                        <td>${latLng.lat || 'N/A'}</td>
-                        <td>${latLng.lng || 'N/A'}</td>
-                    `;
-                    tableBody.appendChild(row);
-                };
-            }
+    <script src="exif.js"></script> <!-- Ensure exif.js is in the same directory -->
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-
-        function getExifData(image) {
-            // Placeholder for EXIF data extraction logic.
-            // This would typically involve a library like exif-js or similar.
-            return {};
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
         }
-
-        function extractLatLng(exifData) {
-            // Placeholder for latitude and longitude extraction from EXIF data.
-            return { lat: 'N/A', lng: 'N/A' };
+        th {
+            background-color: #f2f2f2;
         }
-
-        window.onload = fetchImagesAndMetadata;
-    </script>
+    </style>
 </head>
 <body>
-    <table border="1">
+    <h1>Image Metadata Table</h1>
+    <table id="metadataTable">
         <thead>
             <tr>
                 <th>Image Name</th>
-                <th>Latitude</th>
-                <th>Longitude</th>
+                <th>Metadata</th>
             </tr>
         </thead>
-        <tbody id="image-metadata-body">
+        <tbody>
+            <!-- Rows will be added here by JavaScript -->
         </tbody>
     </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const imageDirectory = 'https://scanos.github.io/qwentest/';
+            const tableBody = document.getElementById('metadataTable').querySelector('tbody');
+
+            // List of image filenames
+            const imageFilenames = ['1.jpg', '2.jpg', '3.jpg']; // Add your image filenames here
+
+            imageFilenames.forEach(filename => {
+                const img = new Image();
+                img.src = imageDirectory + filename;
+
+                img.onload = function() {
+                    EXIF.getData(img, function() {
+                        const allMetaData = EXIF.getAllTags(this);
+                        const metaDataString = JSON.stringify(allMetaData, null, 2);
+
+                        const row = document.createElement('tr');
+                        const nameCell = document.createElement('td');
+                        const metadataCell = document.createElement('td');
+
+                        nameCell.textContent = filename;
+                        metadataCell.textContent = metaDataString;
+
+                        row.appendChild(nameCell);
+                        row.appendChild(metadataCell);
+                        tableBody.appendChild(row);
+                    });
+                };
+
+                img.onerror = function() {
+                    console.error('Error loading image:', filename);
+                };
+            });
+        });
+    </script>
 </body>
 </html>
