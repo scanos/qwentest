@@ -51,6 +51,15 @@
                 var img3WithXmpMetaData = document.getElementById("img3WithXmpMetaData");
                 img3WithXmpMetaData.innerHTML = JSON.stringify(allMetaData, null, "\t");
             });
+
+
+                        var img4 = document.getElementById("img4");
+            // EXIF.enableXmp();
+            EXIF.getData(img4, function() {
+                var allMetaData = EXIF.getAllTags(this);
+                var img3WithXmpMetaData = document.getElementById("img3WithXmpMetaData");
+                img3WithXmpMetaData.innerHTML = JSON.stringify(allMetaData, null, "\t");
+            });
         }
     </script>
 </body>
