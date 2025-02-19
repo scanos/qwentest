@@ -16,13 +16,15 @@
     <pre id="allMetaDataSpan"></pre>
     <br/>
 
-     <img src="3.jpg" id="img4" />
-    <pre id="allMetaDataSpan"></pre>
-    <br/>
+ 
 
     <img src="Bloated-Hero.jpg" id="img3" /><br/>
     <pre id="img3WithXmpMetaData"></pre>
 
+            <img src="3.jpg" id="img4" />
+    <pre id="allMetaDataSpan"></pre>
+    <br/>
+        
     <script type="text/javascript" src="../exif.js"></script>
     <script>
         "use strict";
@@ -53,7 +55,7 @@
             });
 
 
-                        var img4 = document.getElementById("img4");
+            var img4 = document.getElementById("img4");
             // EXIF.enableXmp();
             EXIF.getData(img4, function() {
                 var allMetaData = EXIF.getAllTags(this);
