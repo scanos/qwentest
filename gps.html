@@ -4,77 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Metadata Table</title>
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
+    <script>
+        async function fetchImagesAndMetadata() {
+            const url = 'https://scanos.github.io/qwentest/';
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.error('Failed to fetch the directory listing.');
+                return;
+            }
+
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, "text/html");
+            const links = Array.from(doc.querySelectorAll('a'))
+                .filter(a => a.href.endsWith('.jpg'))
+                .map(a => a.href);
+
+            const tableBody = document.getElementById('image-metadata-body');
+            for (const link of links) {
+                const fullUrl = new URL(link, url).href;
+                const img = new Image();
+                img.src = fullUrl;
+                img.onload = () => {
+                    const exifData = getExifData(img);
+                    const latLng = extractLatLng(exifData);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${link}</td>
+                        <td>${latLng.lat || 'N/A'}</td>
+                        <td>${latLng.lng || 'N/A'}</td>
+                    `;
+                    tableBody.appendChild(row);
+                };
+            }
         }
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border: 1px solid #ddd;
+
+        function getExifData(image) {
+            // Placeholder for EXIF data extraction logic.
+            // This would typically involve a library like exif-js or similar.
+            return {};
         }
-        th {
-            background-color: #f4f4f4;
+
+        function extractLatLng(exifData) {
+            // Placeholder for latitude and longitude extraction from EXIF data.
+            return { lat: 'N/A', lng: 'N/A' };
         }
-    </style>
+
+        window.onload = fetchImagesAndMetadata;
+    </script>
 </head>
 <body>
-    <h2>Image Metadata</h2>
-    <table id="imageTable">
-        <tr>
-            <th>Image Name</th>
-            <th>Latitude</th>
-            <th>Longitude</th>
-        </tr>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+            </tr>
+        </thead>
+        <tbody id="image-metadata-body">
+        </tbody>
     </table>
-
-    <script>
-        async function getImageMetadata() {
-            const imageTable = document.getElementById('imageTable');
-            
-            // Fetch directory contents (assuming a server-side endpoint or mock data)
-            const directoryContents = await fetch('/directory_contents'); // Replace with actual API endpoint
-            const files = await directoryContents.json(); // Assuming it returns an array of file names
-
-            files.forEach(async fileName => {
-                if (fileName.endsWith('.jpg')) {
-                    const img = new Image();
-                    img.src = URL.createObjectURL(await fetchFileAsBlob(fileName));
-                    img.onload = () => {
-                        EXIF.getData(img, () => {
-                            const latitude = EXIF.getTag(img, 'GPSLatitude');
-                            const longitude = EXIF.getTag(img, 'GPSLongitude');
-                            addRowToTable(imageTable, fileName, latitude, longitude);
-                        });
-                    };
-                }
-            });
-        }
-
-        function fetchFileAsBlob(fileName) {
-            return fetch(fileName).then(response => response.blob());
-        }
-
-        function addRowToTable(table, fileName, latitude, longitude) {
-            const row = table.insertRow();
-            const cell1 = row.insertCell(0);
-            const cell2 = row.insertCell(1);
-            const cell3 = row.insertCell(2);
-
-            cell1.textContent = fileName;
-            cell2.textContent = latitude || 'N/A';
-            cell3.textContent = longitude || 'N/A';
-        }
-
-        // Load EXIF library dynamically
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js';
-        document.head.appendChild(script);
-
-        script.onload = () => {
-            getImageMetadata();
-        };
-    </script>
 </body>
 </html>
