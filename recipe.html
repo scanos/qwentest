@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Recipe Suggestion</title>
+</head>
+<body>
+    <h2>AI-Powered Recipe Suggestion</h2>
+    <form id="recipeForm">
+        <label for="ingredient">Enter an Ingredient:</label>
+        <input type="text" id="ingredient" required>
+        <button type="button" onclick="getRecipe()">Get Recipe</button>
+    </form>
+    
+    <h3>Suggested Dish: <span id="dish"></span></h3>
+    <h3>Steps:</h3>
+    <ol>
+        <li id="step1"></li>
+        <li id="step2"></li>
+        <li id="step3"></li>
+        <li id="step4"></li>
+    </ol>
+
+    <script>
+        function getRecipe() {
+            const ingredient = document.getElementById("ingredient").value;
+
+            fetch("api.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ingredient: ingredient })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("dish").textContent = data.dish;
+                document.getElementById("step1").textContent = data.steps[0];
+                document.getElementById("step2").textContent = data.steps[1];
+                document.getElementById("step3").textContent = data.steps[2];
+                document.getElementById("step4").textContent = data.steps[3];
+            })
+            .catch(error => console.error("Error fetching recipe:", error));
+        }
+    </script>
+</body>
+</html>
