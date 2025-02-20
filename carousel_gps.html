@@ -5,37 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Geolocation Viewer</title>
     <script src="exif.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVUXl3Yuq-qa10nrUknyVtju7T7fiuhcE&callback=initMap" async defer></script>
     <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid black;
-            padding: 8px;
-            text-align: left;
-        }
-        #map {
-            height: 500px;
-            width: 100%;
-        }
+        #map { width: 100%; height: 500px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: left; }
     </style>
 </head>
 <body>
-    <h2>Image Metadata and Geolocation</h2>
+    <h1>Image Geolocation Viewer</h1>
+    <div id="map"></div>
     <table>
         <thead>
             <tr>
-                <th>Image</th>
+                <th>Image Name</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
                 <th>Location</th>
             </tr>
         </thead>
-        <tbody id="imageTable"></tbody>
+        <tbody id="imageTableBody"></tbody>
     </table>
-    <div id="map"></div>
+
     <script>
         let map;
         function initMap() {
@@ -45,79 +36,57 @@
             });
         }
 
-        function fetchDirectoryListing() {
-            fetch('directory_listing')
-                .then(response => response.text())
-                .then(text => {
-                    const images = text.split('\n').filter(file => file.endsWith('.jpg'));
-                    images.forEach(processImage);
-                });
-        }
-
-        function processImage(imageName) {
-            let img = new Image();
-            img.src = imageName;
-            img.onload = function() {
-                EXIF.getData(img, function() {
-                    let lat = EXIF.getTag(this, "GPSLatitude");
-                    let lon = EXIF.getTag(this, "GPSLongitude");
-                    let latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                    let lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "W";
-
-                    if (lat && lon) {
-                        let latitude = convertToDecimal(lat, latRef);
-                        let longitude = convertToDecimal(lon, lonRef);
-                        addToTable(imageName, latitude, longitude);
-                        addMarker(imageName, latitude, longitude);
-                        fetchLocation(latitude, longitude, imageName);
-                    }
-                });
-            };
-        }
-
-        function convertToDecimal(coord, ref) {
-            let decimal = coord[0] + coord[1] / 60 + coord[2] / 3600;
-            return (ref === "S" || ref === "W") ? -decimal : decimal;
-        }
-
-        function addToTable(name, lat, lon, location = "Fetching...") {
-            let table = document.getElementById("imageTable");
-            let row = table.insertRow();
-            row.insertCell(0).innerText = name;
-            row.insertCell(1).innerText = lat.toFixed(6);
-            row.insertCell(2).innerText = lon.toFixed(6);
-            row.insertCell(3).innerText = location;
-        }
-
-        function addMarker(name, lat, lon) {
-            let marker = new google.maps.Marker({
-                position: { lat, lng: lon },
-                map: map,
-                title: name
-            });
-        }
-
-        function fetchLocation(lat, lon, imageName) {
-            let url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=AIzaSyDVUXl3Yuq-qa10nrUknyVtju7T7fiuhcE`;
-            fetch(url)
+        function getLocationName(lat, lng, callback) {
+            fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyDVUXl3Yuq-qa10nrUknyVtju7T7fiuhcE`)
                 .then(response => response.json())
                 .then(data => {
-                    let location = data.results[0]?.formatted_address || "Unknown";
-                    updateTable(imageName, location);
+                    if (data.results.length > 0) {
+                        callback(data.results[0].formatted_address);
+                    } else {
+                        callback('Unknown location');
+                    }
+                })
+                .catch(() => callback('Error fetching location'));
+        }
+
+        fetch('directory_listing')
+            .then(response => response.text())
+            .then(text => {
+                const imageFiles = text.split('\n').filter(line => line.endsWith('.jpg'));
+                imageFiles.forEach(file => {
+                    const img = new Image();
+                    img.src = file;
+                    img.onload = function() {
+                        EXIF.getData(img, function() {
+                            const lat = EXIF.getTag(this, "GPSLatitude");
+                            const lon = EXIF.getTag(this, "GPSLongitude");
+                            const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
+                            const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "W";
+
+                            if (lat && lon) {
+                                const latFinal = (lat[0] + lat[1] / 60 + lat[2] / 3600) * (latRef === "N" ? 1 : -1);
+                                const lonFinal = (lon[0] + lon[1] / 60 + lon[2] / 3600) * (lonRef === "E" ? 1 : -1);
+
+                                getLocationName(latFinal, lonFinal, locationName => {
+                                    document.getElementById('imageTableBody').innerHTML += `
+                                        <tr>
+                                            <td>${file}</td>
+                                            <td>${latFinal.toFixed(6)}</td>
+                                            <td>${lonFinal.toFixed(6)}</td>
+                                            <td>${locationName}</td>
+                                        </tr>`;
+                                    new google.maps.Marker({
+                                        position: { lat: latFinal, lng: lonFinal },
+                                        map: map,
+                                        title: file
+                                    });
+                                });
+                            }
+                        });
+                    };
                 });
-        }
-
-        function updateTable(name, location) {
-            let table = document.getElementById("imageTable");
-            for (let row of table.rows) {
-                if (row.cells[0].innerText === name) {
-                    row.cells[3].innerText = location;
-                    break;
-                }
-            }
-        }
-
-        window.onload = fetchDirectoryListing;
+            })
+            .catch(error => console.error('Error loading directory listing:', error));
     </script>
 </body>
 </html>
