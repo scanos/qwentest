@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Geo-location Display</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=places"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=&libraries=places"></script>
     <script src="Exif.js"></script>
     <style>
         table {
@@ -55,7 +55,7 @@
         function initMap() {
             const center = { lat: 33.8888, lng: 35.4944 }; // Central Beirut, Lebanon
             const map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 13,
+                zoom: 8,
                 center: center
             });
 
