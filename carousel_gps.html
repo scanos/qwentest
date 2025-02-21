@@ -4,89 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Geo-Location Viewer</title>
-    <script src="exif.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif.js/2.3.0/exif.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key="></script>
     <style>
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid black; padding: 8px; text-align: left; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        #map {
+            width: 100%;
+            height: 500px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-    <h2>Image Geolocation Data</h2>
+    <h1>Image Geo-Location Viewer</h1>
     <table>
         <thead>
             <tr>
                 <th>Image Name</th>
-                <th>Geo-Location</th>
+                <th>Geo-Location (Latitude, Longitude)</th>
             </tr>
         </thead>
         <tbody id="imageTableBody"></tbody>
     </table>
-    
-    <h2>Google Map</h2>
-    <div id="map" style="width:100%; height:500px;"></div>
+    <div id="map"></div>
     
     <script>
+        const images = ["h2.jpg"]; // Placeholder, replace with actual directory listing.
+        const imageTableBody = document.getElementById("imageTableBody");
         let map;
+        const markers = [];
+
         function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: 33.8938, lng: 35.5018 },
-                zoom: 12
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
+                zoom: 10,
             });
         }
-        
-        function getImages() {
-            fetch('.')
-                .then(response => response.text())
-                .then(text => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(text, 'text/html');
-                    const files = Array.from(doc.querySelectorAll('a'))
-                        .map(a => a.href)
-                        .filter(href => href.endsWith('.jpg'));
-                    
-                    files.forEach(file => processImage(file));
-                });
+
+        function toDecimalDegrees(dms, ref) {
+            let degrees = dms[0] + dms[1] / 60 + dms[2] / 3600;
+            if (ref === "S" || ref === "W") {
+                degrees = -degrees;
+            }
+            return degrees;
         }
 
-        function processImage(imgSrc) {
-            const img = new Image();
-            img.src = imgSrc;
+        function processImage(imageName) {
+            let img = new Image();
+            img.src = imageName;
             img.onload = function () {
                 EXIF.getData(img, function () {
                     const lat = EXIF.getTag(this, "GPSLatitude");
-                    const lon = EXIF.getTag(this, "GPSLongitude");
                     const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+                    const lng = EXIF.getTag(this, "GPSLongitude");
+                    const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
                     
-                    let geoText = "No GPS Data";
-                    let valid = false;
-                    
-                    if (lat && lon && latRef && lonRef) {
-                        const latitude = (lat[0] + lat[1] / 60 + lat[2] / 3600) * (latRef === 'S' ? -1 : 1);
-                        const longitude = (lon[0] + lon[1] / 60 + lon[2] / 3600) * (lonRef === 'W' ? -1 : 1);
-                        geoText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                        valid = true;
+                    let geoData = "No GPS Data";
+                    let latDecimal, lngDecimal;
+
+                    if (lat && lng) {
+                        latDecimal = toDecimalDegrees(lat, latRef);
+                        lngDecimal = toDecimalDegrees(lng, lngRef);
+                        geoData = `${latDecimal.toFixed(6)}, ${lngDecimal.toFixed(6)}`;
                     }
+
+                    let row = `<tr><td>${imageName}</td><td>${geoData}</td></tr>`;
+                    imageTableBody.innerHTML += row;
                     
-                    const tableRow = `<tr><td>${imgSrc}</td><td>${geoText}</td></tr>`;
-                    document.getElementById("imageTableBody").innerHTML += tableRow;
-                    
-                    if (valid) {
-                        new google.maps.Marker({
-                            position: { lat: parseFloat(latitude), lng: parseFloat(longitude) },
+                    if (latDecimal && lngDecimal) {
+                        let marker = new google.maps.Marker({
+                            position: { lat: latDecimal, lng: lngDecimal },
                             map: map,
-                            title: imgSrc
+                            title: imageName,
                         });
+                        markers.push(marker);
                     }
                 });
             };
         }
 
-        window.onload = function () {
-            initMap();
-            getImages();
-        };
+        images.forEach(image => processImage(image));
+        window.onload = initMap;
     </script>
 </body>
 </html>
