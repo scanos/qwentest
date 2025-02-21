@@ -3,84 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Geolocation Table</title>
+    <title>Image Geolocation Table & Map</title>
     <script src="exif.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key="></script>
     <style>
-        table { width: 100%; border-collapse: collapse; }
+        #map { height: 400px; width: 100%; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid black; padding: 8px; text-align: left; }
-        img { max-width: 100px; }
-        #map { width: 100%; height: 500px; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Image Geolocation Table</h1>
+    <h2>Image Metadata Table</h2>
     <table>
-        <thead>
-            <tr>
-                <th>Image Name</th>
-                <th>Location</th>
-            </tr>
-        </thead>
-        <tbody id="imageTableBody">
-        </tbody>
+        <tr>
+            <th>Image Name</th>
+            <th>Geolocation (Latitude, Longitude)</th>
+        </tr>
+        <tr>
+            <td>h2.jpg</td>
+            <td id="geo-data">Loading...</td>
+        </tr>
     </table>
+    
+    <h2>Google Map</h2>
     <div id="map"></div>
+    
     <script>
-        const imageFolder = "directory_listing/";
-        const imageNames = ["h2.jpg"]; // Add your image filenames here
-        let map;
-        let markers = [];
-
-        function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
+        function initMap(lat, lng) {
+            var map = new google.maps.Map(document.getElementById('map'), {
                 center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
                 zoom: 10
             });
+
+            if (lat && lng) {
+                new google.maps.Marker({
+                    position: { lat: lat, lng: lng },
+                    map: map,
+                    title: "h2.jpg Location"
+                });
+            }
         }
 
-        function addMarker(lat, lng, title) {
-            const marker = new google.maps.Marker({
-                position: { lat, lng },
-                map,
-                title
-            });
-            markers.push(marker);
+        function getExifData() {
+            var img = new Image();
+            img.src = 'h2.jpg';
+            img.onload = function () {
+                EXIF.getData(img, function () {
+                    var lat = EXIF.getTag(this, "GPSLatitude");
+                    var lng = EXIF.getTag(this, "GPSLongitude");
+                    var latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    var lngRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+                    if (lat && lng) {
+                        var latFinal = (lat[0] + lat[1] / 60 + lat[2] / 3600) * (latRef === "S" ? -1 : 1);
+                        var lngFinal = (lng[0] + lng[1] / 60 + lng[2] / 3600) * (lngRef === "W" ? -1 : 1);
+                        document.getElementById("geo-data").innerText = latFinal.toFixed(6) + ", " + lngFinal.toFixed(6);
+                        initMap(latFinal, lngFinal);
+                    } else {
+                        document.getElementById("geo-data").innerText = "No GPS data available";
+                        initMap();
+                    }
+                });
+            };
         }
 
-        function extractExifData(imgElement, imageName) {
-            EXIF.getData(imgElement, function() {
-                const lat = EXIF.getTag(this, "GPSLatitude");
-                const lon = EXIF.getTag(this, "GPSLongitude");
-                const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
-                
-                if (lat && lon) {
-                    const latDec = (lat[0] + lat[1] / 60 + lat[2] / 3600) * (latRef === "N" ? 1 : -1);
-                    const lonDec = (lon[0] + lon[1] / 60 + lon[2] / 3600) * (lonRef === "E" ? 1 : -1);
-                    
-                    const row = `<tr><td>${imageName}</td><td>${latDec}, ${lonDec}</td></tr>`;
-                    document.getElementById("imageTableBody").innerHTML += row;
-                    addMarker(latDec, lonDec, imageName);
-                } else {
-                    const row = `<tr><td>${imageName}</td><td>No GPS Data</td></tr>`;
-                    document.getElementById("imageTableBody").innerHTML += row;
-                }
-            });
-        }
-
-        function loadImages() {
-            imageNames.forEach(imageName => {
-                const img = new Image();
-                img.src = imageFolder + imageName;
-                img.onload = () => extractExifData(img, imageName);
-            });
-        }
-
-        window.onload = function() {
-            initMap();
-            loadImages();
-        };
+        getExifData();
     </script>
 </body>
 </html>
