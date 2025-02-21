@@ -3,86 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Metadata and Map</title>
+    <title>Image EXIF & Google Maps</title>
     <script src="https://maps.googleapis.com/maps/api/js?key="></script>
     <script src="exif.js"></script>
     <style>
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid black; padding: 8px; text-align: center; }
-        img { width: 100px; height: auto; }
-        #map { height: 400px; width: 100%; margin-top: 20px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        img {
+            width: 100px;
+            height: auto;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
-    <h2>Image Metadata Table</h2>
+    <h2>Image Metadata & Map</h2>
+    
     <table>
         <thead>
             <tr>
-                <th>Filename</th>
+                <th>Image Name</th>
                 <th>Thumbnail</th>
-                <th>GeoLocation</th>
+                <th>GeoLocation (Latitude, Longitude)</th>
             </tr>
         </thead>
-        <tbody id="imageTable">
-        </tbody>
+        <tbody id="imageTable"></tbody>
     </table>
+
+    <h2>Google Map</h2>
     <div id="map"></div>
 
     <script>
-        function loadImages() {
-            const images = ['h1.jpg', 'h2.jpg', 'h3.jpg'];
-            const table = document.getElementById('imageTable');
-            const map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 33.8938, lng: 35.5018 },
-                zoom: 10,
-            });
+        const images = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
+        const tableBody = document.getElementById("imageTable");
+        let map;
+        let markers = [];
 
-            images.forEach(image => {
-                let row = table.insertRow();
-                let cellName = row.insertCell(0);
-                let cellImage = row.insertCell(1);
-                let cellGeo = row.insertCell(2);
-                
-                cellName.textContent = image;
-                let imgElement = document.createElement("img");
-                imgElement.src = image;
-                cellImage.appendChild(imgElement);
-                
-                let img = new Image();
-                img.src = image;
-                img.onload = function() {
-                    EXIF.getData(img, function() {
-                        let lat = EXIF.getTag(this, "GPSLatitude");
-                        let lon = EXIF.getTag(this, "GPSLongitude");
-                        let latRef = EXIF.getTag(this, "GPSLatitudeRef");
-                        let lonRef = EXIF.getTag(this, "GPSLongitudeRef");
-                        
-                        if (lat && lon) {
-                            let latDec = convertToDecimal(lat, latRef);
-                            let lonDec = convertToDecimal(lon, lonRef);
-                            cellGeo.textContent = `Lat: ${latDec}, Lng: ${lonDec}`;
-                            
-                            if (image === 'h2.jpg') {
-                                new google.maps.Marker({
-                                    position: { lat: latDec, lng: lonDec },
-                                    map: map,
-                                    title: image
-                                });
-                            }
-                        } else {
-                            cellGeo.textContent = "No GPS Data";
-                        }
-                    });
-                };
-            });
-        }
-
-        function convertToDecimal(coord, ref) {
+        function toDecimal(coord, ref) {
             let decimal = coord[0] + coord[1] / 60 + coord[2] / 3600;
             return (ref === "S" || ref === "W") ? -decimal : decimal;
         }
 
-        window.onload = loadImages;
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
+                zoom: 10
+            });
+        }
+
+        function addMarker(lat, lng, name) {
+            const marker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                title: name
+            });
+            markers.push(marker);
+        }
+
+        images.forEach(image => {
+            const row = document.createElement("tr");
+            
+            // Image Name
+            const nameCell = document.createElement("td");
+            nameCell.textContent = image;
+            row.appendChild(nameCell);
+            
+            // Thumbnail
+            const imgCell = document.createElement("td");
+            const imgElement = document.createElement("img");
+            imgElement.src = image;
+            imgElement.alt = image;
+            imgCell.appendChild(imgElement);
+            row.appendChild(imgCell);
+            
+            // Geolocation Data
+            const geoCell = document.createElement("td");
+            geoCell.textContent = "Loading...";
+            row.appendChild(geoCell);
+            
+            tableBody.appendChild(row);
+
+            // Extract EXIF data
+            imgElement.onload = function () {
+                EXIF.getData(imgElement, function () {
+                    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    const lat = EXIF.getTag(this, "GPSLatitude");
+                    const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
+                    const lng = EXIF.getTag(this, "GPSLongitude");
+
+                    if (lat && lng) {
+                        const latitude = toDecimal(lat, latRef);
+                        const longitude = toDecimal(lng, lngRef);
+                        geoCell.textContent = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+
+                        // Add markers for "h1.jpg", "h2.jpg", and "h3.jpg"
+                        if (["h1.jpg", "h2.jpg", "h3.jpg","h4.jpg"].includes(image)) {
+                            addMarker(latitude, longitude, image);
+                        }
+                    } else {
+                        geoCell.textContent = "No GPS data";
+                    }
+                });
+            };
+        });
+
+        window.onload = initMap;
     </script>
 </body>
 </html>
