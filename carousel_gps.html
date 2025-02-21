@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Geolocation Display</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=Y&callback=initMap" async defer></script>
+    <title>Image Geolocation Viewer</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
     <script src="exif.js"></script>
     <style>
-        #map {
-            height: 500px;
-            width: 100%;
-        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -22,14 +18,14 @@
             padding: 10px;
             text-align: left;
         }
-        img {
-            max-width: 100px;
-            max-height: 100px;
+        #map {
+            height: 500px;
+            width: 100%;
         }
     </style>
 </head>
 <body>
-    <h1>Image Geolocation Display</h1>
+    <h1>Image Geolocation Viewer</h1>
     <table>
         <thead>
             <tr>
@@ -46,57 +42,53 @@
 
     <script>
         const images = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
-        const imageData = [];
+        const imageTableBody = document.getElementById('imageTableBody');
+        const map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
+            zoom: 12
+        });
 
-        function initMap() {
-            const beirutCenter = { lat: 33.8938, lng: 35.5018 };
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 15,
-                center: beirutCenter,
-            });
+        images.forEach(image => {
+            const row = document.createElement('tr');
 
-            images.forEach((image, index) => {
-                const imgElement = document.createElement('img');
-                imgElement.src = image;
+            const nameCell = document.createElement('td');
+            nameCell.textContent = image;
+            row.appendChild(nameCell);
 
-                imgElement.onload = function () {
-                    EXIF.getData(imgElement, function () {
-                        const lat = EXIF.getTag(this, "GPSLatitude");
-                        const lng = EXIF.getTag(this, "GPSLongitude");
+            const thumbnailCell = document.createElement('td');
+            const img = document.createElement('img');
+            img.src = image;
+            img.style.width = '100px';
+            thumbnailCell.appendChild(img);
+            row.appendChild(thumbnailCell);
 
-                        if (lat && lng) {
-                            const latLng = {
-                                lat: lat[0] + lat[1] / 60 + lat[2] / 3600,
-                                lng: lng[0] + lng[1] / 60 + lng[2] / 3600,
-                            };
+            const geolocationCell = document.createElement('td');
+            row.appendChild(geolocationCell);
 
-                            imageData.push({
-                                name: image,
-                                latLng: latLng,
-                            });
+            imageTableBody.appendChild(row);
 
-                            // Add marker to the map
-                            new google.maps.Marker({
-                                position: latLng,
-                                map: map,
-                                title: image,
-                            });
+            EXIF.getData(img, function() {
+                const lat = EXIF.getTag(this, "GPSLatitude");
+                const lng = EXIF.getTag(this, "GPSLongitude");
 
-                            // Add row to the table
-                            const tableBody = document.getElementById("imageTableBody");
-                            const row = tableBody.insertRow();
-                            const cell1 = row.insertCell(0);
-                            const cell2 = row.insertCell(1);
-                            const cell3 = row.insertCell(2);
+                if (lat && lng) {
+                    const latLng = {
+                        lat: lat[0] + lat[1]/60 + lat[2]/3600,
+                        lng: lng[0] + lng[1]/60 + lng[2]/3600
+                    };
 
-                            cell1.innerHTML = image;
-                            cell2.innerHTML = `<img src="${image}" alt="${image}">`;
-                            cell3.innerHTML = `Lat: ${latLng.lat}, Lng: ${latLng.lng}`;
-                        }
+                    geolocationCell.textContent = `Lat: ${latLng.lat}, Lng: ${latLng.lng}`;
+
+                    new google.maps.Marker({
+                        position: latLng,
+                        map: map,
+                        title: image
                     });
-                };
+                } else {
+                    geolocationCell.textContent = 'No geolocation data';
+                }
             });
-        }
+        });
     </script>
 </body>
 </html>
