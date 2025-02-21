@@ -3,116 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Metadata and Map</title>
+    <title>Image Geo-location Display</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=places"></script>
+    <script src="Exif.js"></script>
     <style>
         table {
             width: 100%;
             border-collapse: collapse;
         }
-
         table, th, td {
             border: 1px solid black;
         }
-
         th, td {
             padding: 8px;
             text-align: left;
         }
-
-        #map {
-            height: 500px;
+        .map {
             width: 100%;
+            height: 500px;
+        }
+        .thumbnail {
+            width: 100px;
+            height: 100px;
         }
     </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=&callback=initMap" async defer></script>
-    <script src="exif.js"></script>
 </head>
 <body>
-    <h1>Image Metadata and Map</h1>
-    
-    <table id="imageTable">
+
+    <h1>Image Metadata with Geo-location</h1>
+
+    <table>
         <thead>
             <tr>
                 <th>Image Name</th>
                 <th>Thumbnail</th>
-                <th>Geolocation Metadata</th>
+                <th>Geolocation</th>
             </tr>
         </thead>
-        <tbody>
-            <!-- Table rows will be populated by JavaScript -->
+        <tbody id="image-table">
+            <!-- Table rows will be dynamically inserted here -->
         </tbody>
     </table>
 
-    <div id="map"></div>
+    <div id="map" class="map"></div>
 
     <script>
-        var imageFiles = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
-        var geolocations = [];
-        
-        // Function to extract EXIF data and update table
-        function extractExifData(imageFile, callback) {
-            var img = new Image();
-            img.onload = function () {
-                EXIF.getData(img, function () {
-                    var latitude = EXIF.getTag(img, "GPSLatitude");
-                    var longitude = EXIF.getTag(img, "GPSLongitude");
+        const imageFiles = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
+        const geolocationData = [];
 
-                    if (latitude && longitude) {
-                        var lat = convertToDecimal(latitude);
-                        var lon = convertToDecimal(longitude);
-                        geolocations.push({ lat: lat, lon: lon, image: imageFile });
-                    }
-
-                    callback(imageFile, lat, lon);
-                });
-            };
-            img.src = imageFile;
-        }
-
-        // Convert GPS coordinates from degrees, minutes, seconds to decimal
-        function convertToDecimal(gpsCoordinate) {
-            var degrees = gpsCoordinate[0];
-            var minutes = gpsCoordinate[1];
-            var seconds = gpsCoordinate[2];
-            return degrees + (minutes / 60) + (seconds / 3600);
-        }
-
-        // Function to populate the table with image details
-        function populateTable(imageFile, lat, lon) {
-            var table = document.getElementById("imageTable").getElementsByTagName('tbody')[0];
-            var row = table.insertRow();
-            var cell1 = row.insertCell(0);
-            var cell2 = row.insertCell(1);
-            var cell3 = row.insertCell(2);
-
-            cell1.innerHTML = imageFile;
-            cell2.innerHTML = `<img src="${imageFile}" alt="${imageFile}" width="100">`;
-            cell3.innerHTML = lat && lon ? `Latitude: ${lat}, Longitude: ${lon}` : "No geolocation data";
-        }
-
-        // Function to initialize the Google Map
+        // Initialize the Google Map centered on Beirut
         function initMap() {
-            var centralBeirut = { lat: 33.8869, lng: 35.5131 };
-            var map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 12,
-                center: centralBeirut,
+            const center = { lat: 33.8888, lng: 35.4944 }; // Central Beirut, Lebanon
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 13,
+                center: center
             });
 
-            geolocations.forEach(function (location) {
-                if (location.lat && location.lon) {
-                    new google.maps.Marker({
-                        position: { lat: location.lat, lng: location.lon },
-                        map: map,
-                        title: location.image,
+            // Iterate through images and extract geolocation
+            imageFiles.forEach((image, index) => {
+                const reader = new FileReader();
+                const imgPath = image;
+
+                reader.onload = function(event) {
+                    const arrayBuffer = event.target.result;
+                    const exif = new Exif();
+                    exif.load(arrayBuffer, function() {
+                        const gpsData = exif.getGPSData();
+                        if (gpsData) {
+                            const latitude = gpsData.latitude;
+                            const longitude = gpsData.longitude;
+                            geolocationData.push({ image: image, lat: latitude, lng: longitude });
+
+                            // Create a marker on the map
+                            const marker = new google.maps.Marker({
+                                position: { lat: latitude, lng: longitude },
+                                map: map,
+                                title: image
+                            });
+                        }
+
+                        // Add table row for the image
+                        const table = document.getElementById('image-table');
+                        const row = document.createElement('tr');
+                        
+                        const imageNameCell = document.createElement('td');
+                        imageNameCell.textContent = image;
+                        
+                        const thumbnailCell = document.createElement('td');
+                        const imgThumbnail = document.createElement('img');
+                        imgThumbnail.src = imgPath;
+                        imgThumbnail.classList.add('thumbnail');
+                        thumbnailCell.appendChild(imgThumbnail);
+
+                        const geoCell = document.createElement('td');
+                        if (gpsData) {
+                            geoCell.textContent = `Lat: ${gpsData.latitude}, Lng: ${gpsData.longitude}`;
+                        } else {
+                            geoCell.textContent = 'No geolocation data available';
+                        }
+
+                        row.appendChild(imageNameCell);
+                        row.appendChild(thumbnailCell);
+                        row.appendChild(geoCell);
+                        table.appendChild(row);
                     });
-                }
+                };
+
+                // Read the image file
+                fetch(imgPath)
+                    .then(response => response.arrayBuffer())
+                    .then(arrayBuffer => reader.readAsArrayBuffer(arrayBuffer))
+                    .catch(err => console.log('Error loading image:', err));
             });
         }
 
-        // Load EXIF data for each image and populate the table
-        imageFiles.forEach(function (imageFile) {
-            extractExifData(imageFile, populateTable);
-        });
+        window.onload = initMap;
     </script>
 </body>
 </html>
