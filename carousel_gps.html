@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Geolocation</title>
-    <script src="https://maps.googleapis.com/maps/api/js?key=&callback=initMap" async defer></script>
+    <title>Image Geolocation Display</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
     <script src="exif.js"></script>
     <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -16,107 +20,83 @@
         }
         th, td {
             padding: 10px;
-            text-align: center;
+            text-align: left;
         }
         img {
-            width: 100px;
-            height: auto;
-        }
-        #map {
-            height: 500px;
-            width: 100%;
+            max-width: 100px;
+            max-height: 100px;
         }
     </style>
 </head>
 <body>
+    <h1>Image Geolocation Display</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>Thumbnail</th>
+                <th>Geolocation</th>
+            </tr>
+        </thead>
+        <tbody id="imageTableBody">
+            <!-- Rows will be inserted here by JavaScript -->
+        </tbody>
+    </table>
+    <div id="map"></div>
 
-<h1>Image Geolocation</h1>
+    <script>
+        const images = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
+        const imageData = [];
 
-<table id="imageTable">
-    <thead>
-        <tr>
-            <th>Image Name</th>
-            <th>Thumbnail</th>
-            <th>Geolocation</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>h1.jpg</td>
-            <td><img src="h1.jpg" alt="h1" id="thumb1"></td>
-            <td id="geo1">Loading...</td>
-        </tr>
-        <tr>
-            <td>h2.jpg</td>
-            <td><img src="h2.jpg" alt="h2" id="thumb2"></td>
-            <td id="geo2">Loading...</td>
-        </tr>
-        <tr>
-            <td>h3.jpg</td>
-            <td><img src="h3.jpg" alt="h3" id="thumb3"></td>
-            <td id="geo3">Loading...</td>
-        </tr>
-        <tr>
-            <td>h4.jpg</td>
-            <td><img src="h4.jpg" alt="h4" id="thumb4"></td>
-            <td id="geo4">Loading...</td>
-        </tr>
-    </tbody>
-</table>
+        function initMap() {
+            const beirutCenter = { lat: 33.8938, lng: 35.5018 };
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: beirutCenter,
+            });
 
-<div id="map"></div>
+            images.forEach((image, index) => {
+                const imgElement = document.createElement('img');
+                imgElement.src = image;
 
-<script>
-    var map;
-    var markers = [];
+                imgElement.onload = function () {
+                    EXIF.getData(imgElement, function () {
+                        const lat = EXIF.getTag(this, "GPSLatitude");
+                        const lng = EXIF.getTag(this, "GPSLongitude");
 
-    function initMap() {
-        map = new google.maps.Map(document.getElementById("map"), {
-            center: { lat: 33.8886, lng: 35.4950 },  // Central Beirut, Lebanon
-            zoom: 15
-        });
+                        if (lat && lng) {
+                            const latLng = {
+                                lat: lat[0] + lat[1] / 60 + lat[2] / 3600,
+                                lng: lng[0] + lng[1] / 60 + lng[2] / 3600,
+                            };
 
-        // Images and their file paths
-        var images = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
-        var geolocationData = [];
-
-        images.forEach((image, index) => {
-            // Fetch EXIF data and extract geolocation info
-            fetch(image)
-                .then(response => response.blob())
-                .then(blob => {
-                    EXIF.getData(blob, function() {
-                        var lat = EXIF.getTag(this, "GPSLatitude");
-                        var lon = EXIF.getTag(this, "GPSLongitude");
-
-                        if (lat && lon) {
-                            var latitude = EXIF.getTag(this, "GPSLatitude");
-                            var longitude = EXIF.getTag(this, "GPSLongitude");
-                            var geo = { lat: latitude, lon: longitude };
-
-                            geolocationData.push(geo);
-
-                            var latLng = { lat: latitude, lng: longitude };
-                            var marker = new google.maps.Marker({
-                                position: latLng,
-                                map: map,
-                                title: image
+                            imageData.push({
+                                name: image,
+                                latLng: latLng,
                             });
 
-                            markers.push(marker);
+                            // Add marker to the map
+                            new google.maps.Marker({
+                                position: latLng,
+                                map: map,
+                                title: image,
+                            });
 
-                            // Update the table with geolocation data
-                            document.getElementById('geo' + (index + 1)).innerText = `Lat: ${latitude}, Lon: ${longitude}`;
-                        } else {
-                            document.getElementById('geo' + (index + 1)).innerText = "No geolocation data";
+                            // Add row to the table
+                            const tableBody = document.getElementById("imageTableBody");
+                            const row = tableBody.insertRow();
+                            const cell1 = row.insertCell(0);
+                            const cell2 = row.insertCell(1);
+                            const cell3 = row.insertCell(2);
+
+                            cell1.innerHTML = image;
+                            cell2.innerHTML = `<img src="${image}" alt="${image}">`;
+                            cell3.innerHTML = `Lat: ${latLng.lat}, Lng: ${latLng.lng}`;
                         }
                     });
-                });
-        });
-    }
-
-    window.onload = initMap;
-</script>
-
+                };
+            });
+        }
+    </script>
 </body>
 </html>
