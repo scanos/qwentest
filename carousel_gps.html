@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Table with Map</title>
     <script src="exif.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=IzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&loading=async"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=maps,marker"></script>
     <style>
         table {
             width: 100%;
@@ -13,92 +13,100 @@
         }
         table, th, td {
             border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
+            padding: 8px;
         }
         img {
-            max-width: 100px;
-            height: auto;
+            height: 100px;
         }
         #map {
             height: 500px;
-            width: 100%;
             margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>Image Table with Geolocation and Map</h1>
+    <h1>Image Table with Geolocation Data</h1>
     <table>
         <tr>
             <th>Image Name</th>
             <th>Thumbnail</th>
             <th>Geolocation Metadata</th>
         </tr>
-        <script>
-            const images = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
-            const imageFolder = './'; 
-            const mapCenter = { lat: 33.8938, lng: 35.5018 }; 
-            
-            function createTableRow(image) {
-                const reader = new FileReader();
-                const row = document.createElement('tr');
-
-                row.innerHTML = `
-                    <td>${image}</td>
-                    <td><img src="${imageFolder + image}" alt="${image}"></td>
-                    <td id="geo-${image}">Loading metadata...</td>
-                `;
-
-                const imgElement = new Image();
-                imgElement.src = imageFolder + image;
-                imgElement.onload = () => {
-                    EXIF.getData(imgElement, function () {
-                        const lat = EXIF.getTag(this, "GPSLatitude");
-                        const lng = EXIF.getTag(this, "GPSLongitude");
-
-                        if (lat && lng) {
-                            const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                            const lngRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
-
-                            const latitude = lat[0] + lat[1] / 60 + lat[2] / 3600 * (latRef === "N" ? 1 : -1);
-                            const longitude = lng[0] + lng[1] / 60 + lng[2] / 3600 * (lngRef === "E" ? 1 : -1);
-                            
-                            document.getElementById(`geo-${image}`).innerText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                            
-                            addMarker(latitude, longitude, image);
-                        } else {
-                            document.getElementById(`geo-${image}`).innerText = "No geolocation data";
-                        }
-                    });
-                };
-
-                document.querySelector('table').appendChild(row);
-            }
-
-            function initMap() {
-                const map = new google.maps.Map(document.getElementById("map"), {
-                    center: mapCenter,
-                    zoom: 15,
-                    mapTypeId: "roadmap",
-                });
-
-                window.addMarker = function(lat, lng, title) {
-                    new google.maps.Marker({
-                        position: { lat, lng },
-                        map: map,
-                        title: title
-                    });
-                }
-            }
-
-            window.onload = () => {
-                images.forEach(createTableRow);
-                initMap();
-            }
-        </script>
+        <tr>
+            <td>h1.jpg</td>
+            <td><img src="h1.jpg" id="img1"></td>
+            <td id="geo1">Loading...</td>
+        </tr>
+        <tr>
+            <td>h2.jpg</td>
+            <td><img src="h2.jpg" id="img2"></td>
+            <td id="geo2">Loading...</td>
+        </tr>
+        <tr>
+            <td>h3.jpg</td>
+            <td><img src="h3.jpg" id="img3"></td>
+            <td id="geo3">Loading...</td>
+        </tr>
+        <tr>
+            <td>h4.jpg</td>
+            <td><img src="h4.jpg" id="img4"></td>
+            <td id="geo4">Loading...</td>
+        </tr>
     </table>
-    
+
     <div id="map"></div>
+
+    <script>
+        function initMap() {
+            const beirut = { lat: 33.8938, lng: 35.5018 };
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: beirut,
+                mapTypeId: "roadmap",
+            });
+
+            const images = ["img1", "img2", "img3", "img4"];
+            const geoCells = ["geo1", "geo2", "geo3", "geo4"];
+
+            images.forEach((imgId, index) => {
+                const img = document.getElementById(imgId);
+                EXIF.getData(img, function () {
+                    const lat = EXIF.getTag(this, "GPSLatitude");
+                    const lng = EXIF.getTag(this, "GPSLongitude");
+
+                    if (lat && lng) {
+                        const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
+                        const lngRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
+
+                        const latitude = convertDMSToDD(lat, latRef);
+                        const longitude = convertDMSToDD(lng, lngRef);
+
+                        document.getElementById(geoCells[index]).innerText = `${latitude}, ${longitude}`;
+
+                        const marker = new google.maps.marker.AdvancedMarkerElement({
+                            position: { lat: latitude, lng: longitude },
+                            map: map,
+                            title: imgId + '.jpg'
+                        });
+                    } else {
+                        document.getElementById(geoCells[index]).innerText = "No geolocation data available";
+                    }
+                });
+            });
+        }
+
+        function convertDMSToDD(dms, ref) {
+            const degrees = dms[0] || 0;
+            const minutes = dms[1] || 0;
+            const seconds = dms[2] || 0;
+            let dd = degrees + minutes / 60 + seconds / 3600;
+            if (ref === "S" || ref === "W") {
+                dd = dd * -1;
+            }
+            return dd;
+        }
+
+        window.onload = initMap;
+    </script>
 </body>
 </html>
