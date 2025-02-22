@@ -1,9 +1,10 @@
-carousel_gps.html
+https://scanos.github.io/qwentest/carousel_gps.html
 
 This extracts gps data from 4 images and plots them on a google map
 You need to change the Google api key in google web site
 I had to download and add exif.js manually 
 I had to enable add gps data on my mobile phone
+I had to add https://scanos.github.io/qwentest/carousel_gps.html to permitted websites on my google maps api key 
 
 The Chatgpt prompt is 
  Create a html page 
