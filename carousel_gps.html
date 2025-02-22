@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Table with Geolocation and Map</title>
+    <title>Image Table with Map</title>
     <script src="exif.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw"></script>
     <style>
@@ -12,110 +12,89 @@
             border-collapse: collapse;
         }
         table, th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-        }
-        th {
-            background-color: #f2f2f2;
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
         }
         img {
             max-width: 100px;
-            height: auto;
+            max-height: 100px;
         }
         #map {
             height: 500px;
             width: 100%;
-            margin-top: 20px;
         }
     </style>
 </head>
 <body>
+    <h1>Image Table with Geolocation and Map</h1>
+    <table>
+        <tr>
+            <th>Image Name</th>
+            <th>Thumbnail</th>
+            <th>Geolocation (Latitude, Longitude)</th>
+        </tr>
+        <tr id="h1.jpg"></tr>
+        <tr id="h2.jpg"></tr>
+        <tr id="h3.jpg"></tr>
+        <tr id="h4.jpg"></tr>
+    </table>
+    
+    <h2>Map</h2>
+    <div id="map"></div>
 
-<h2>Image Table with Thumbnails and Geolocation</h2>
-<table>
-    <tr>
-        <th>Image Name</th>
-        <th>Thumbnail</th>
-        <th>Geolocation</th>
-    </tr>
-    <tr>
-        <td>h1.jpg</td>
-        <td><img src="h1.jpg" alt="h1"></td>
-        <td id="geo-h1"></td>
-    </tr>
-    <tr>
-        <td>h2.jpg</td>
-        <td><img src="h2.jpg" alt="h2"></td>
-        <td id="geo-h2"></td>
-    </tr>
-    <tr>
-        <td>h3.jpg</td>
-        <td><img src="h3.jpg" alt="h3"></td>
-        <td id="geo-h3"></td>
-    </tr>
-    <tr>
-        <td>h4.jpg</td>
-        <td><img src="h4.jpg" alt="h4"></td>
-        <td id="geo-h4"></td>
-    </tr>
-</table>
-
-<h2>Image Locations on Map</h2>
-<div id="map"></div>
-
-<script>
-    function getExifData(imgId, imgSrc, geoId, map, markers) {
-        let img = new Image();
-        img.src = imgSrc;
-        img.onload = function () {
-            EXIF.getData(img, function () {
-                let lat = EXIF.getTag(this, "GPSLatitude");
-                let lon = EXIF.getTag(this, "GPSLongitude");
-                let latRef = EXIF.getTag(this, "GPSLatitudeRef") || 'N';
-                let lonRef = EXIF.getTag(this, "GPSLongitudeRef") || 'E';
-                
-                if (lat && lon) {
-                    let latDec = convertDMSToDD(lat, latRef);
-                    let lonDec = convertDMSToDD(lon, lonRef);
-                    
-                    document.getElementById(geoId).innerText = `${latDec}, ${lonDec}`;
-                    let marker = new google.maps.Marker({
-                        position: { lat: latDec, lng: lonDec },
-                        map: map,
-                        title: imgId
-                    });
-                    markers.push(marker);
-                } else {
-                    document.getElementById(geoId).innerText = "No geolocation data";
-                }
-            });
-        };
-    }
-
-    function convertDMSToDD(dms, ref) {
-        let degrees = dms[0].numerator / dms[0].denominator;
-        let minutes = dms[1].numerator / dms[1].denominator;
-        let seconds = dms[2].numerator / dms[2].denominator;
-        let dd = degrees + minutes / 60 + seconds / 3600;
-        return (ref === "S" || ref === "W") ? -dd : dd;
-    }
-
-    function initMap() {
-        let map = new google.maps.Map(document.getElementById("map"), {
-            center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
+    <script>
+        const imageFiles = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
+        const mapCenter = { lat: 33.8938, lng: 35.5018 }; 
+        const map = new google.maps.Map(document.getElementById("map"), {
+            center: mapCenter,
             zoom: 15,
-            mapTypeId: "roadmap"
+            mapTypeId: google.maps.MapTypeId.ROADMAP
         });
 
-        let markers = [];
-        getExifData("h1.jpg", "h1.jpg", "geo-h1", map, markers);
-        getExifData("h2.jpg", "h2.jpg", "geo-h2", map, markers);
-        getExifData("h3.jpg", "h3.jpg", "geo-h3", map, markers);
-        getExifData("h4.jpg", "h4.jpg", "geo-h4", map, markers);
-    }
+        imageFiles.forEach(file => {
+            const row = document.getElementById(file);
+            row.innerHTML = `
+                <td>${file}</td>
+                <td><img src="${file}" alt="${file}"></td>
+                <td id="geo-${file}">Loading...</td>
+            `;
 
-    window.onload = initMap;
-</script>
+            const img = new Image();
+            img.src = file;
+            img.onload = () => {
+                EXIF.getData(img, function() {
+                    const lat = EXIF.getTag(this, "GPSLatitude");
+                    const lon = EXIF.getTag(this, "GPSLongitude");
+                    const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
+                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
+                    
+                    if (lat && lon) {
+                        const latDec = convertToDecimal(lat, latRef);
+                        const lonDec = convertToDecimal(lon, lonRef);
+                        
+                        document.getElementById(`geo-${file}`).innerText = `${latDec}, ${lonDec}`;
+                        
+                        new google.maps.Marker({
+                            position: { lat: latDec, lng: lonDec },
+                            map: map,
+                            title: file
+                        });
+                    } else {
+                        document.getElementById(`geo-${file}`).innerText = "No GPS data";
+                    }
+                });
+            };
+        });
 
+        function convertToDecimal(coords, ref) {
+            const degrees = coords[0].numerator / coords[0].denominator;
+            const minutes = coords[1].numerator / coords[1].denominator;
+            const seconds = coords[2].numerator / coords[2].denominator;
+            let decimal = degrees + minutes / 60 + seconds / 3600;
+            if (ref === "S" || ref === "W") decimal *= -1;
+            return decimal;
+        }
+    </script>
 </body>
 </html>
