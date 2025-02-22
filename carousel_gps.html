@@ -3,97 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Table with Map</title>
+    <title>Image Geolocation Map</title>
     <script src="exif.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&callback=initMap" async defer></script>
     <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        table, th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: center;
-        }
-        img {
-            max-width: 100px;
-            max-height: 100px;
-        }
-        #map {
-            height: 500px;
-            width: 100%;
-        }
+        table { width: 100%; border-collapse: collapse; }
+        table, th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+        img { width: 100px; height: auto; }
+        #map { height: 500px; width: 100%; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Image Table with Geolocation and Map</h1>
+    <h1>Image Metadata and Map</h1>
     <table>
         <tr>
             <th>Image Name</th>
             <th>Thumbnail</th>
-            <th>Geolocation (Latitude, Longitude)</th>
+            <th>Geolocation</th>
         </tr>
-        <tr id="h1.jpg"></tr>
-        <tr id="h2.jpg"></tr>
-        <tr id="h3.jpg"></tr>
-        <tr id="h4.jpg"></tr>
+        <tr>
+            <td>h1.jpg</td>
+            <td><img src="h1.jpg" id="img1"></td>
+            <td id="geo1">Loading...</td>
+        </tr>
+        <tr>
+            <td>h2.jpg</td>
+            <td><img src="h2.jpg" id="img2"></td>
+            <td id="geo2">Loading...</td>
+        </tr>
+        <tr>
+            <td>h3.jpg</td>
+            <td><img src="h3.jpg" id="img3"></td>
+            <td id="geo3">Loading...</td>
+        </tr>
+        <tr>
+            <td>h4.jpg</td>
+            <td><img src="h4.jpg" id="img4"></td>
+            <td id="geo4">Loading...</td>
+        </tr>
     </table>
-    
-    <h2>Map</h2>
+
     <div id="map"></div>
 
     <script>
-        const imageFiles = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
-        const mapCenter = { lat: 33.8938, lng: 35.5018 }; 
-        const map = new google.maps.Map(document.getElementById("map"), {
-            center: mapCenter,
-            zoom: 15,
-            mapTypeId: google.maps.MapTypeId.ROADMAP
-        });
+        const imageIds = ['img1', 'img2', 'img3', 'img4'];
+        const geoIds = ['geo1', 'geo2', 'geo3', 'geo4'];
+        let markers = [];
+        let map;
 
-        imageFiles.forEach(file => {
-            const row = document.getElementById(file);
-            row.innerHTML = `
-                <td>${file}</td>
-                <td><img src="${file}" alt="${file}"></td>
-                <td id="geo-${file}">Loading...</td>
-            `;
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 33.8938, lng: 35.5018 },
+                zoom: 15,
+                mapTypeId: 'roadmap'
+            });
+        }
 
-            const img = new Image();
-            img.src = file;
-            img.onload = () => {
-                EXIF.getData(img, function() {
-                    const lat = EXIF.getTag(this, "GPSLatitude");
-                    const lon = EXIF.getTag(this, "GPSLongitude");
-                    const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
+        function getExifData(imgId, geoId) {
+            const img = document.getElementById(imgId);
+            EXIF.getData(img, function() {
+                const lat = EXIF.getTag(this, 'GPSLatitude');
+                const lng = EXIF.getTag(this, 'GPSLongitude');
+                if (lat && lng) {
+                    const latRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N';
+                    const lngRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'E';
+                    const latDec = convertDMSToDD(lat, latRef);
+                    const lngDec = convertDMSToDD(lng, lngRef);
                     
-                    if (lat && lon) {
-                        const latDec = convertToDecimal(lat, latRef);
-                        const lonDec = convertToDecimal(lon, lonRef);
-                        
-                        document.getElementById(`geo-${file}`).innerText = `${latDec}, ${lonDec}`;
-                        
-                        new google.maps.Marker({
-                            position: { lat: latDec, lng: lonDec },
-                            map: map,
-                            title: file
-                        });
-                    } else {
-                        document.getElementById(`geo-${file}`).innerText = "No GPS data";
-                    }
-                });
-            };
-        });
+                    document.getElementById(geoId).textContent = `${latDec}, ${lngDec}`;
+                    
+                    const marker = new google.maps.Marker({
+                        position: { lat: latDec, lng: lngDec },
+                        map: map,
+                        title: imgId
+                    });
+                    markers.push(marker);
+                } else {
+                    document.getElementById(geoId).textContent = 'No geolocation data';
+                }
+            });
+        }
 
-        function convertToDecimal(coords, ref) {
-            const degrees = coords[0].numerator / coords[0].denominator;
-            const minutes = coords[1].numerator / coords[1].denominator;
-            const seconds = coords[2].numerator / coords[2].denominator;
-            let decimal = degrees + minutes / 60 + seconds / 3600;
-            if (ref === "S" || ref === "W") decimal *= -1;
-            return decimal;
+        function convertDMSToDD(dms, ref) {
+            const dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
+            return (ref === 'S' || ref === 'W') ? -dd : dd;
+        }
+
+        window.onload = function() {
+            imageIds.forEach((id, index) => getExifData(id, geoIds[index]));
         }
     </script>
 </body>
