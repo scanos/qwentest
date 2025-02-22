@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Table with Map</title>
+    <title>Image Table with Geolocation and Map</title>
     <script src="exif.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=maps,marker"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw"></script>
     <style>
         table {
             width: 100%;
@@ -15,98 +15,107 @@
             border: 1px solid #ddd;
             padding: 8px;
         }
+        th {
+            background-color: #f2f2f2;
+        }
         img {
-            height: 100px;
+            max-width: 100px;
+            height: auto;
         }
         #map {
             height: 500px;
+            width: 100%;
             margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>Image Table with Geolocation Data</h1>
-    <table>
-        <tr>
-            <th>Image Name</th>
-            <th>Thumbnail</th>
-            <th>Geolocation Metadata</th>
-        </tr>
-        <tr>
-            <td>h1.jpg</td>
-            <td><img src="h1.jpg" id="img1"></td>
-            <td id="geo1">Loading...</td>
-        </tr>
-        <tr>
-            <td>h2.jpg</td>
-            <td><img src="h2.jpg" id="img2"></td>
-            <td id="geo2">Loading...</td>
-        </tr>
-        <tr>
-            <td>h3.jpg</td>
-            <td><img src="h3.jpg" id="img3"></td>
-            <td id="geo3">Loading...</td>
-        </tr>
-        <tr>
-            <td>h4.jpg</td>
-            <td><img src="h4.jpg" id="img4"></td>
-            <td id="geo4">Loading...</td>
-        </tr>
-    </table>
 
-    <div id="map"></div>
+<h2>Image Table with Thumbnails and Geolocation</h2>
+<table>
+    <tr>
+        <th>Image Name</th>
+        <th>Thumbnail</th>
+        <th>Geolocation</th>
+    </tr>
+    <tr>
+        <td>h1.jpg</td>
+        <td><img src="h1.jpg" alt="h1"></td>
+        <td id="geo-h1"></td>
+    </tr>
+    <tr>
+        <td>h2.jpg</td>
+        <td><img src="h2.jpg" alt="h2"></td>
+        <td id="geo-h2"></td>
+    </tr>
+    <tr>
+        <td>h3.jpg</td>
+        <td><img src="h3.jpg" alt="h3"></td>
+        <td id="geo-h3"></td>
+    </tr>
+    <tr>
+        <td>h4.jpg</td>
+        <td><img src="h4.jpg" alt="h4"></td>
+        <td id="geo-h4"></td>
+    </tr>
+</table>
 
-    <script>
-        function initMap() {
-            const beirut = { lat: 33.8938, lng: 35.5018 };
-            const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 15,
-                center: beirut,
-                mapTypeId: "roadmap",
+<h2>Image Locations on Map</h2>
+<div id="map"></div>
+
+<script>
+    function getExifData(imgId, imgSrc, geoId, map, markers) {
+        let img = new Image();
+        img.src = imgSrc;
+        img.onload = function () {
+            EXIF.getData(img, function () {
+                let lat = EXIF.getTag(this, "GPSLatitude");
+                let lon = EXIF.getTag(this, "GPSLongitude");
+                let latRef = EXIF.getTag(this, "GPSLatitudeRef") || 'N';
+                let lonRef = EXIF.getTag(this, "GPSLongitudeRef") || 'E';
+                
+                if (lat && lon) {
+                    let latDec = convertDMSToDD(lat, latRef);
+                    let lonDec = convertDMSToDD(lon, lonRef);
+                    
+                    document.getElementById(geoId).innerText = `${latDec}, ${lonDec}`;
+                    let marker = new google.maps.Marker({
+                        position: { lat: latDec, lng: lonDec },
+                        map: map,
+                        title: imgId
+                    });
+                    markers.push(marker);
+                } else {
+                    document.getElementById(geoId).innerText = "No geolocation data";
+                }
             });
+        };
+    }
 
-            const images = ["img1", "img2", "img3", "img4"];
-            const geoCells = ["geo1", "geo2", "geo3", "geo4"];
+    function convertDMSToDD(dms, ref) {
+        let degrees = dms[0].numerator / dms[0].denominator;
+        let minutes = dms[1].numerator / dms[1].denominator;
+        let seconds = dms[2].numerator / dms[2].denominator;
+        let dd = degrees + minutes / 60 + seconds / 3600;
+        return (ref === "S" || ref === "W") ? -dd : dd;
+    }
 
-            images.forEach((imgId, index) => {
-                const img = document.getElementById(imgId);
-                EXIF.getData(img, function () {
-                    const lat = EXIF.getTag(this, "GPSLatitude");
-                    const lng = EXIF.getTag(this, "GPSLongitude");
+    function initMap() {
+        let map = new google.maps.Map(document.getElementById("map"), {
+            center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
+            zoom: 15,
+            mapTypeId: "roadmap"
+        });
 
-                    if (lat && lng) {
-                        const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                        const lngRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
+        let markers = [];
+        getExifData("h1.jpg", "h1.jpg", "geo-h1", map, markers);
+        getExifData("h2.jpg", "h2.jpg", "geo-h2", map, markers);
+        getExifData("h3.jpg", "h3.jpg", "geo-h3", map, markers);
+        getExifData("h4.jpg", "h4.jpg", "geo-h4", map, markers);
+    }
 
-                        const latitude = convertDMSToDD(lat, latRef);
-                        const longitude = convertDMSToDD(lng, lngRef);
+    window.onload = initMap;
+</script>
 
-                        document.getElementById(geoCells[index]).innerText = `${latitude}, ${longitude}`;
-
-                        const marker = new google.maps.marker.AdvancedMarkerElement({
-                            position: { lat: latitude, lng: longitude },
-                            map: map,
-                            title: imgId + '.jpg'
-                        });
-                    } else {
-                        document.getElementById(geoCells[index]).innerText = "No geolocation data available";
-                    }
-                });
-            });
-        }
-
-        function convertDMSToDD(dms, ref) {
-            const degrees = dms[0] || 0;
-            const minutes = dms[1] || 0;
-            const seconds = dms[2] || 0;
-            let dd = degrees + minutes / 60 + seconds / 3600;
-            if (ref === "S" || ref === "W") {
-                dd = dd * -1;
-            }
-            return dd;
-        }
-
-        window.onload = initMap;
-    </script>
 </body>
 </html>
