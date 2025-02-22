@@ -3,106 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Table with Geolocation and Map</title>
+    <title>Image Table with Map</title>
     <script src="exif.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=IzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&loading=async"></script>
     <style>
         table {
             width: 100%;
             border-collapse: collapse;
         }
         table, th, td {
-            border: 1px solid #ccc;
-        }
-        th, td {
+            border: 1px solid #ddd;
             padding: 10px;
             text-align: center;
         }
         img {
             max-width: 100px;
-            max-height: 100px;
+            height: auto;
         }
         #map {
             height: 500px;
             width: 100%;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
+    <h1>Image Table with Geolocation and Map</h1>
+    <table>
+        <tr>
+            <th>Image Name</th>
+            <th>Thumbnail</th>
+            <th>Geolocation Metadata</th>
+        </tr>
+        <script>
+            const images = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
+            const imageFolder = './'; 
+            const mapCenter = { lat: 33.8938, lng: 35.5018 }; 
+            
+            function createTableRow(image) {
+                const reader = new FileReader();
+                const row = document.createElement('tr');
 
-<h1>Image Table with Geolocation</h1>
-<table>
-    <tr>
-        <th>Image Name</th>
-        <th>Thumbnail</th>
-        <th>Geolocation (Latitude, Longitude)</th>
-    </tr>
-    <tbody id="imageTableBody">
-    </tbody>
-</table>
-
-<h2>Map</h2>
-<div id="map"></div>
-
-<script>
-    const imageFiles = ["h1.jpg", "h2.jpg", "h3.jpg", "h4.jpg"];
-    const imageTableBody = document.getElementById('imageTableBody');
-
-    function getExifData(imageFile, callback) {
-        const img = new Image();
-        img.src = imageFile;
-        img.onload = () => {
-            EXIF.getData(img, function() {
-                const lat = EXIF.getTag(this, "GPSLatitude");
-                const lon = EXIF.getTag(this, "GPSLongitude");
-                const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
-                const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
-
-                if (lat && lon) {
-                    const latitude = convertToDecimal(lat, latRef);
-                    const longitude = convertToDecimal(lon, lonRef);
-                    callback(latitude, longitude);
-                } else {
-                    callback(null, null);
-                }
-            });
-        };
-    }
-
-    function convertToDecimal(coords, ref) {
-        let decimal = coords[0] + coords[1] / 60 + coords[2] / 3600;
-        return (ref === "S" || ref === "W") ? -decimal : decimal;
-    }
-
-    function initMap() {
-        const map = new google.maps.Map(document.getElementById("map"), {
-            center: { lat: 33.8938, lng: 35.5018 },
-            zoom: 15,
-            mapTypeId: "roadmap"
-        });
-
-        imageFiles.forEach((file) => {
-            getExifData(file, (lat, lon) => {
-                const row = imageTableBody.insertRow();
                 row.innerHTML = `
-                    <td>${file}</td>
-                    <td><img src="${file}" alt="${file}"></td>
-                    <td>${lat && lon ? `${lat}, ${lon}` : "No GPS data"}</td>
+                    <td>${image}</td>
+                    <td><img src="${imageFolder + image}" alt="${image}"></td>
+                    <td id="geo-${image}">Loading metadata...</td>
                 `;
 
-                if (lat && lon) {
+                const imgElement = new Image();
+                imgElement.src = imageFolder + image;
+                imgElement.onload = () => {
+                    EXIF.getData(imgElement, function () {
+                        const lat = EXIF.getTag(this, "GPSLatitude");
+                        const lng = EXIF.getTag(this, "GPSLongitude");
+
+                        if (lat && lng) {
+                            const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
+                            const lngRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
+
+                            const latitude = lat[0] + lat[1] / 60 + lat[2] / 3600 * (latRef === "N" ? 1 : -1);
+                            const longitude = lng[0] + lng[1] / 60 + lng[2] / 3600 * (lngRef === "E" ? 1 : -1);
+                            
+                            document.getElementById(`geo-${image}`).innerText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                            
+                            addMarker(latitude, longitude, image);
+                        } else {
+                            document.getElementById(`geo-${image}`).innerText = "No geolocation data";
+                        }
+                    });
+                };
+
+                document.querySelector('table').appendChild(row);
+            }
+
+            function initMap() {
+                const map = new google.maps.Map(document.getElementById("map"), {
+                    center: mapCenter,
+                    zoom: 15,
+                    mapTypeId: "roadmap",
+                });
+
+                window.addMarker = function(lat, lng, title) {
                     new google.maps.Marker({
-                        position: { lat, lng: lon },
+                        position: { lat, lng },
                         map: map,
-                        title: file
+                        title: title
                     });
                 }
-            });
-        });
-    }
+            }
 
-    window.onload = initMap;
-</script>
-
+            window.onload = () => {
+                images.forEach(createTableRow);
+                initMap();
+            }
+        </script>
+    </table>
+    
+    <div id="map"></div>
 </body>
 </html>
