@@ -1,16 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Geolocation Map</title>
     <style>
-        #map { 
-            height: 500px; 
-            width: 100%; 
-            margin-top: 20px; 
-        }
         table {
-            border-collapse: collapse;
             width: 100%;
+            border-collapse: collapse;
             margin: 20px 0;
         }
         th, td {
@@ -21,17 +18,21 @@
         th {
             background-color: #f2f2f2;
         }
-        img {
+        #map {
+            height: 400px;
+            width: 100%;
+            margin: 20px 0;
+        }
+        img.thumbnail {
             max-width: 100px;
             height: auto;
         }
     </style>
-    <script src="exif.js"></script>
 </head>
 <body>
     <h1>Image Geolocation Data</h1>
     
-    <!-- Initial Image Data Table -->
+    <!-- Table for image data -->
     <table id="imageTable">
         <thead>
             <tr>
@@ -43,93 +44,103 @@
         <tbody></tbody>
     </table>
 
-    <!-- Reverse Geocoded Addresses Table -->
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <!-- Table for reverse geocoded addresses -->
+    <h2>Reverse Geocoded Addresses</h2>
     <table id="addressTable">
         <thead>
             <tr>
                 <th>Image Name</th>
+                <th>Coordinates</th>
                 <th>Address</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
-    <!-- Map Container -->
-    <div id="map"></div>
+    <!-- Walking route directions -->
+    <h2>Walking Route from h1.jpg</h2>
+    <div id="directions"></div>
 
+    <!-- Scripts -->
+    <script src="exif.js"></script>
     <script>
         const images = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
-        let locations = [];
+        let coordinates = [];
         
-        // Function to convert GPS coordinates from EXIF to decimal
+        // Function to convert GPS coordinates to decimal
         function gpsToDecimal(gpsData, ref) {
-            if (!gpsData || gpsData.length < 3) return null;
-            let decimal = gpsData[0] + (gpsData[1] / 60) + (gpsData[2] / 3600);
+            let decimal = gpsData[0] + gpsData[1]/60 + gpsData[2]/3600;
             return (ref === 'S' || ref === 'W') ? -decimal : decimal;
         }
 
-        // Process images and populate initial table
-        function processImages() {
+        // Process images and populate table
+        async function processImages() {
             const tbody = document.querySelector('#imageTable tbody');
-            images.forEach(image => {
-                const img = new Image();
-                img.src = image;
-                img.onload = function() {
-                    EXIF.getData(img, function() {
-                        const lat = gpsToDecimal(
-                            EXIF.getTag(this, 'GPSLatitude'),
-                            EXIF.getTag(this, 'GPSLatitudeRef')
-                        );
-                        const lng = gpsToDecimal(
-                            EXIF.getTag(this, 'GPSLongitude'),
-                            EXIF.getTag(this, 'GPSLongitudeRef')
-                        );
-                        
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${image}</td>
-                            <td><img src="${image}" alt="${image}"></td>
-                            <td>${lat ? lat.toFixed(6) + ', ' + lng.toFixed(6) : 'No GPS data'}</td>
-                        `;
-                        tbody.appendChild(row);
+            
+            for (let image of images) {
+                const response = await fetch(image);
+                const blob = await response.blob();
+                
+                EXIF.getData(blob, function() {
+                    const lat = EXIF.getTag(this, 'GPSLatitude');
+                    const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+                    const lon = EXIF.getTag(this, 'GPSLongitude');
+                    const lonRef = EXIF.getTag(this, 'GPSLongitudeRef');
+                    
+                    let latDecimal = lat ? gpsToDecimal(lat, latRef) : null;
+                    let lonDecimal = lon ? gpsToDecimal(lon, lonRef) : null;
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${image}</td>
+                        <td><img src="${image}" class="thumbnail" alt="${image}"></td>
+                        <td>${latDecimal && lonDecimal ? `${latDecimal}, ${lonDecimal}` : 'No GPS data'}</td>
+                    `;
+                    tbody.appendChild(row);
 
-                        if (lat && lng) {
-                            locations.push({name: image, lat: lat, lng: lng});
-                        }
-                    });
-                };
-            });
+                    if (latDecimal && lonDecimal) {
+                        coordinates.push({
+                            image: image,
+                            lat: latDecimal,
+                            lng: lonDecimal
+                        });
+                    }
+                });
+            }
         }
 
-        // Map initialization function
+        // Initialize Google Map
         function initMap() {
+            const beirut = { lat: 33.8938, lng: 35.5018 };
             const map = new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 33.8938, lng: 35.5018}, // Beirut, Lebanon
                 zoom: 15,
+                center: beirut,
                 mapTypeId: google.maps.MapTypeId.ROADMAP
             });
 
-            const geocoder = new google.maps.Geocoder();
-            const directionsService = new google.maps.DirectionsService();
-            const directionsRenderer = new google.maps.DirectionsRenderer({
-                map: map,
-                suppressMarkers: true
+            // Add markers
+            coordinates.forEach(coord => {
+                new google.maps.Marker({
+                    position: { lat: coord.lat, lng: coord.lng },
+                    map: map,
+                    title: coord.image
+                });
             });
 
-            // Add markers and reverse geocode
+            // Reverse geocode coordinates
+            const geocoder = new google.maps.Geocoder();
             const addressTbody = document.querySelector('#addressTable tbody');
-            locations.forEach(loc => {
-                const marker = new google.maps.Marker({
-                    position: {lat: loc.lat, lng: loc.lng},
-                    map: map,
-                    title: loc.name
-                });
-
-                geocoder.geocode({location: {lat: loc.lat, lng: loc.lng}}, (results, status) => {
+            
+            coordinates.forEach(coord => {
+                geocoder.geocode({ location: { lat: coord.lat, lng: coord.lng } }, (results, status) => {
                     if (status === 'OK' && results[0]) {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td>${loc.name}</td>
+                            <td>${coord.image}</td>
+                            <td>${coord.lat}, ${coord.lng}</td>
                             <td>${results[0].formatted_address}</td>
                         `;
                         addressTbody.appendChild(row);
@@ -138,56 +149,41 @@
             });
 
             // Calculate walking route
-            if (locations.length > 1) {
-                const start = locations[0]; // h1.jpg
-                let unvisited = locations.slice(1);
-                let waypoints = [];
-                let current = start;
-
-                while (unvisited.length > 0) {
-                    // Find nearest unvisited location
-                    let nearest = unvisited.reduce((prev, curr) => {
-                        const prevDist = google.maps.geometry.spherical.computeDistanceBetween(
-                            new google.maps.LatLng(current.lat, current.lng),
-                            new google.maps.LatLng(prev.lat, prev.lng)
-                        );
-                        const currDist = google.maps.geometry.spherical.computeDistanceBetween(
-                            new google.maps.LatLng(current.lat, current.lng),
-                            new google.maps.LatLng(curr.lat, curr.lng)
-                        );
-                        return currDist < prevDist ? curr : prev;
-                    });
-
-                    waypoints.push({
-                        location: {lat: nearest.lat, lng: nearest.lng},
-                        stopover: true
-                    });
-                    current = nearest;
-                    unvisited = unvisited.filter(loc => loc !== nearest);
-                }
+            if (coordinates.length > 1) {
+                const directionsService = new google.maps.DirectionsService();
+                const directionsRenderer = new google.maps.DirectionsRenderer();
+                directionsRenderer.setMap(map);
+                
+                const waypoints = coordinates.slice(1).map(coord => ({
+                    location: { lat: coord.lat, lng: coord.lng },
+                    stopover: true
+                }));
 
                 directionsService.route({
-                    origin: {lat: start.lat, lng: start.lng},
-                    destination: {lat: current.lat, lng: current.lng},
+                    origin: { lat: coordinates[0].lat, lng: coordinates[0].lng },
+                    destination: { lat: coordinates[coordinates.length-1].lat, lng: coordinates[coordinates.length-1].lng },
                     waypoints: waypoints,
                     travelMode: google.maps.TravelMode.WALKING
                 }, (response, status) => {
                     if (status === 'OK') {
                         directionsRenderer.setDirections(response);
+                        document.getElementById('directions').innerHTML = 
+                            'Walking route calculated successfully. See map for details.';
                     } else {
-                        console.error('Directions request failed: ' + status);
+                        document.getElementById('directions').innerHTML = 
+                            'Could not calculate walking route: ' + status;
                     }
                 });
             }
         }
 
-        // Load images when page loads
+        // Start processing
         window.onload = processImages;
-
-        // Note: Replace 'YOUR_API_KEY' with your actual Google Maps API key
     </script>
+    
+    <!-- Load Google Maps API asynchronously -->
     <script async
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=geometry&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&callback=initMap">
     </script>
 </body>
 </html>
