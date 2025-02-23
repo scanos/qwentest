@@ -1,0 +1,5 @@
+used this prompt for GROK 
+How do I create a html which reverse geocodes using Google Map APIs a list  of lat,long coordinates. How many Google map API keys do I need
+and
+it returned html code which i uploaded to 
+https://scanos.github.io/qwentest/reverse_geo.html
