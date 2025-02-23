@@ -1,4 +1,4 @@
-Using Grok, this prompt worked
+Using Grok, this prompt worked for Gmpa1.html
 Create a html page 
 Create a html table and for each of the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg" 
 create a table row with one cell displaying the image name, display a thumbnail of the image in the second cell, 
@@ -9,3 +9,17 @@ After the table has been completed, create a google map which should be loaded a
 and centered on Beirut, Lebanon, at zoom 15 and map type ROADMAP, 
 and create markers on the map for each of the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg"  based on their geolocation data  
 Create a html table which reverse geocodes using Google Map APIs the list  of lat,long coordinates from the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg".
+
+THE SECOND VERSION EXPANDS THIS TO INCLUDE A ROUTE PLAN
+
+ Create a html page 
+Create a html table and for each of the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg" 
+create a table row with one cell displaying the image name, display a thumbnail of the image in the second cell, 
+and the third cell displaying the geolocation metadata of each image 
+using exif.js which been installed in the same folder.
+
+After the table has been completed, create a google map which should be loaded async mode, 
+and centered on Beirut, Lebanon, at zoom 15 and map type ROADMAP, 
+and create markers on the map for each of the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg"  based on their geolocation data  
+Create a html table which reverse geocodes using Google Map APIs the list  of lat,long coordinates from the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg". 
+Create a walking route plan which gives walking directions from the location of "h1.jpg" to the nearest location in the list"h2.jpg,h3.jpg,h4.jpg" based on their  location data and once determined repeat this process until all of the locations shown in the image list "h2.jpg,h3.jpg,h4.jpg" have been visited.
