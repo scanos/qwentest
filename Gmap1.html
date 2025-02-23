@@ -3,28 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Geolocation Map</title>
+    <title>Image Geolocation Display</title>
     <style>
         table {
             border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 20px;
+            margin: 20px 0;
         }
         th, td {
-            border: 1px solid #ddd;
+            border: 1px solid black;
             padding: 8px;
-            text-align: left;
+            text-align: center;
         }
-        th {
-            background-color: #f2f2f2;
+        .thumbnail {
+            max-width: 100px;
+            max-height: 100px;
         }
         #map {
             height: 400px;
             width: 100%;
-        }
-        img {
-            max-width: 100px;
-            height: auto;
         }
     </style>
 </head>
@@ -43,10 +39,11 @@
         <tbody></tbody>
     </table>
 
-    <!-- Map Container -->
+    <!-- Google Map -->
     <div id="map"></div>
 
-    <!-- Reverse Geocoding Table -->
+    <!-- Reverse Geocoded Addresses Table -->
+    <h2>Reverse Geocoded Addresses</h2>
     <table id="addressTable">
         <thead>
             <tr>
@@ -61,122 +58,112 @@
     <!-- Scripts -->
     <script src="exif.js"></script>
     <script>
-        // Image array
-        const images = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
+        const imageFiles = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
+        let imageData = [];
         let map;
         let geocoder;
-        const coordinates = [];
 
-        // Convert EXIF GPS coordinates to decimal
+        // Convert GPS coordinates from EXIF to decimal
         function gpsToDecimal(gpsData, ref) {
             if (!gpsData || !gpsData.length) return null;
             const degrees = gpsData[0];
             const minutes = gpsData[1];
             const seconds = gpsData[2];
             let decimal = degrees + (minutes / 60) + (seconds / 3600);
-            if (ref === 'S' || ref === 'W') decimal *= -1;
+            if (ref === 'S' || ref === 'W') decimal = -decimal;
             return decimal;
         }
 
-        // Process images and populate table
-        async function processImages() {
+        // Process images and extract EXIF data
+        function processImages() {
             const tbody = document.querySelector('#imageTable tbody');
-            for (const img of images) {
-                const row = document.createElement('tr');
+            
+            imageFiles.forEach(file => {
+                const img = new Image();
+                img.src = file;
                 
-                // Image name cell
-                const nameCell = document.createElement('td');
-                nameCell.textContent = img;
-                row.appendChild(nameCell);
+                img.onload = function() {
+                    EXIF.getData(img, function() {
+                        const lat = gpsToDecimal(
+                            EXIF.getTag(this, 'GPSLatitude'),
+                            EXIF.getTag(this, 'GPSLatitudeRef')
+                        );
+                        const lon = gpsToDecimal(
+                            EXIF.getTag(this, 'GPSLongitude'),
+                            EXIF.getTag(this, 'GPSLongitudeRef')
+                        );
+                        
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${file}</td>
+                            <td><img src="${file}" class="thumbnail"></td>
+                            <td>${lat ? lat.toFixed(6) + ', ' + lon.toFixed(6) : 'N/A'}</td>
+                        `;
+                        tbody.appendChild(row);
 
-                // Thumbnail cell
-                const thumbCell = document.createElement('td');
-                const thumbImg = document.createElement('img');
-                thumbImg.src = img;
-                thumbCell.appendChild(thumbImg);
-                row.appendChild(thumbCell);
+                        if (lat && lon) {
+                            imageData.push({ file, lat, lon });
+                        }
 
-                // Geolocation cell
-                const geoCell = document.createElement('td');
-                try {
-                    const response = await fetch(img);
-                    const blob = await response.blob();
-                    const exifData = await new Promise((resolve) => {
-                        EXIF.getData(blob, function() {
-                            resolve(this.exifdata);
-                        });
+                        // When all images are processed, initialize map and reverse geocode
+                        if (imageData.length === imageFiles.length || 
+                            tbody.children.length === imageFiles.length) {
+                            initMap();
+                        }
                     });
-
-                    const lat = gpsToDecimal(exifData.GPSLatitude, exifData.GPSLatitudeRef);
-                    const lon = gpsToDecimal(exifData.GPSLongitude, exifData.GPSLongitudeRef);
-                    
-                    if (lat && lon) {
-                        geoCell.textContent = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
-                        coordinates.push({img, lat, lon});
-                    } else {
-                        geoCell.textContent = 'No geolocation data';
-                    }
-                } catch (error) {
-                    geoCell.textContent = 'Error reading geolocation';
-                    console.error(error);
-                }
-                row.appendChild(geoCell);
-                tbody.appendChild(row);
-            }
+                };
+            });
         }
 
         // Initialize Google Map
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 33.8938, lng: 35.5018}, // Beirut, Lebanon
+                center: { lat: 33.8938, lng: 35.5018 }, // Beirut, Lebanon
                 zoom: 15,
                 mapTypeId: 'roadmap'
             });
 
             geocoder = new google.maps.Geocoder();
-            
-            // Add markers and process reverse geocoding
-            coordinates.forEach(coord => {
-                const marker = new google.maps.Marker({
-                    position: {lat: coord.lat, lng: coord.lon},
+
+            // Add markers
+            imageData.forEach(data => {
+                new google.maps.Marker({
+                    position: { lat: data.lat, lng: data.lon },
                     map: map,
-                    title: coord.img
+                    title: data.file
                 });
-                reverseGeocode(coord);
             });
+
+            // Reverse geocode coordinates
+            reverseGeocode();
         }
 
         // Reverse geocode coordinates
-        function reverseGeocode(coord) {
+        function reverseGeocode() {
             const tbody = document.querySelector('#addressTable tbody');
-            const row = document.createElement('tr');
             
-            row.innerHTML = `
-                <td>${coord.img}</td>
-                <td>${coord.lat.toFixed(6)}, ${coord.lon.toFixed(6)}</td>
-                <td id="addr-${coord.img}">Loading...</td>
-            `;
-            tbody.appendChild(row);
-
-            geocoder.geocode({location: {lat: coord.lat, lng: coord.lon}}, (results, status) => {
-                const addrCell = document.getElementById(`addr-${coord.img}`);
-                if (status === 'OK' && results[0]) {
-                    addrCell.textContent = results[0].formatted_address;
-                } else {
-                    addrCell.textContent = 'Address not found';
-                }
+            imageData.forEach(data => {
+                const latlng = { lat: data.lat, lng: data.lon };
+                
+                geocoder.geocode({ location: latlng }, (results, status) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${data.file}</td>
+                        <td>${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</td>
+                        <td>${status === 'OK' ? results[0].formatted_address : 'N/A'}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
             });
         }
 
-        // Start processing
-        window.onload = () => {
-            processImages();
-        };
+        // Start processing when page loads
+        window.onload = processImages;
     </script>
-    
-    <!-- Load Google Maps API asynchronously -->
+
+    <!-- Google Maps API with async loading -->
     <script async
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
     </script>
 </body>
 </html>
