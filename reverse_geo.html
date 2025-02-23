@@ -1,96 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Table with Map</title>
-    <script src="exif.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=places"></script>
+    <title>Reverse Geocoding Example</title>
     <style>
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px; text-align: left; border: 1px solid #ccc; }
-        img { max-width: 100px; max-height: 100px; }
-        #map { height: 500px; width: 100%; margin-top: 20px; }
+        #map {
+            height: 400px;
+            width: 100%;
+        }
+        #results {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-    <h1>Image Metadata and Map</h1>
-    <table>
-        <tr>
-            <th>Image Name</th>
-            <th>Thumbnail</th>
-            <th>Geolocation Metadata</th>
-            <th>Reverse Geocoded Address</th>
-        </tr>
-        <tbody id="imageTable"></tbody>
-    </table>
+    <h1>Reverse Geocoding Multiple Coordinates</h1>
     <div id="map"></div>
+    <div id="results"></div>
 
     <script>
-        const images = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
-        const mapCenter = { lat: 33.8938, lng: 35.5018 }; // Beirut, Lebanon
+        // Replace YOUR_API_KEY with your actual Google Maps API key
+        const apiKey = 'AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw';
+
+        // List of latitude/longitude coordinates
+        const coordinates = [
+            { lat: 40.714224, lng: -73.961452 }, // Example: Brooklyn, NY
+            { lat: 37.7749, lng: -122.4194 },   // Example: San Francisco, CA
+            { lat: 51.5074, lng: -0.1278 } ,     // Example: London, UK
+            { lat: 33.89462777777778, lng: 35.51548611111111}
+        ];
+
         let map;
+        let geocoder;
 
         function initMap() {
+            // Initialize the map centered on the first coordinate
             map = new google.maps.Map(document.getElementById('map'), {
-                center: mapCenter,
-                zoom: 15,
-                mapTypeId: 'roadmap'
+                zoom: 2,
+                center: coordinates[0]
             });
+
+            geocoder = new google.maps.Geocoder();
+            reverseGeocodeCoordinates();
         }
 
-        function reverseGeocode(lat, lng, callback) {
-            const geocoder = new google.maps.Geocoder();
-            const latlng = new google.maps.LatLng(lat, lng);
-            geocoder.geocode({ location: latlng }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    callback(results[0].formatted_address);
-                } else {
-                    callback('Address not found');
-                }
-            });
-        }
+        function reverseGeocodeCoordinates() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h3>Results:</h3>';
 
-        function processImage(imgName) {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${imgName}</td>
-                <td><img src="${imgName}" alt="${imgName}"></td>
-                <td>Loading...</td>
-                <td>Loading...</td>
-            `;
-            document.getElementById('imageTable').appendChild(row);
-
-            const img = new Image();
-            img.src = imgName;
-            img.onload = () => {
-                EXIF.getData(img, function() {
-                    const lat = EXIF.getTag(this, 'GPSLatitude');
-                    const lng = EXIF.getTag(this, 'GPSLongitude');
-                    if (lat && lng) {
-                        const latDec = lat[0] + lat[1] / 60 + lat[2] / 3600;
-                        const lngDec = lng[0] + lng[1] / 60 + lng[2] / 3600;
-                        row.cells[2].innerText = `Lat: ${latDec.toFixed(6)}, Lng: ${lngDec.toFixed(6)}`;
-                        reverseGeocode(latDec, lngDec, address => {
-                            row.cells[3].innerText = address;
-                        });
-                        new google.maps.Marker({
-                            position: { lat: latDec, lng: lngDec },
+            coordinates.forEach((coord, index) => {
+                geocoder.geocode({ location: coord }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        const marker = new google.maps.Marker({
+                            position: coord,
                             map: map,
-                            title: imgName
+                            title: results[0].formatted_address
                         });
+
+                        // Add result to the page
+                        resultsDiv.innerHTML += `<p>Coordinate ${index + 1} (${coord.lat}, ${coord.lng}): ${results[0].formatted_address}</p>`;
                     } else {
-                        row.cells[2].innerText = 'No geolocation data';
-                        row.cells[3].innerText = 'Cannot reverse geocode';
+                        resultsDiv.innerHTML += `<p>Coordinate ${index + 1} (${coord.lat}, ${coord.lng}): No results found</p>`;
                     }
                 });
-            };
+            });
         }
-
-        window.onload = () => {
-            initMap();
-            images.forEach(img => processImage(img));
-        };
     </script>
+
+    <!-- Load the Google Maps JavaScript API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&callback=initMap" async defer></script>
 </body>
 </html>
