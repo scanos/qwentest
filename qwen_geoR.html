@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Geocoding Example</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=places"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Reverse Geocoding Example</h1>
+    <button onclick="reverseGeocodeCoordinates()">Reverse Geocode Coordinates</button>
+    <div id="results"></div>
+
+    <script>
+        // List of coordinates to reverse geocode
+        const coordinates = [
+            { lat: 40.714224, lng: -73.961452 },
+            { lat: 37.7749, lng: -122.4194 },
+            { lat: 51.5074, lng: -0.1278 },
+            { lat: 33.89462777777778, lng: 35.51548611111111 }
+        ];
+
+        // Function to reverse geocode a list of coordinates
+        function reverseGeocodeCoordinates() {
+            const geocoder = new google.maps.Geocoder();
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = ''; // Clear previous results
+
+            coordinates.forEach((coord, index) => {
+                const latlng = { lat: coord.lat, lng: coord.lng };
+
+                geocoder.geocode({ location: latlng }, (results, status) => {
+                    if (status === 'OK') {
+                        if (results[0]) {
+                            const address = results[0].formatted_address;
+                            resultsDiv.innerHTML += `<p><strong>Coordinate ${index + 1}:</strong> ${address}</p>`;
+                        } else {
+                            resultsDiv.innerHTML += `<p><strong>Coordinate ${index + 1}:</strong> No results found</p>`;
+                        }
+                    } else {
+                        resultsDiv.innerHTML += `<p><strong>Coordinate ${index + 1}:</strong> Geocoding failed: ${status}</p>`;
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
