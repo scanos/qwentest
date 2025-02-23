@@ -1,0 +1,11 @@
+Using Grok, this prompt worked
+Create a html page 
+Create a html table and for each of the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg" 
+create a table row with one cell displaying the image name, display a thumbnail of the image in the second cell, 
+and the third cell displaying the geolocation metadata of each image 
+using exif.js which been installed in the same folder.
+
+After the table has been completed, create a google map which should be loaded async mode, 
+and centered on Beirut, Lebanon, at zoom 15 and map type ROADMAP, 
+and create markers on the map for each of the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg"  based on their geolocation data  
+Create a html table which reverse geocodes using Google Map APIs the list  of lat,long coordinates from the images "h1.jpg,h2.jpg,h3.jpg,h4.jpg".
