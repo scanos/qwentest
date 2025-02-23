@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Geolocation Display</title>
+    <style>
+        table {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        img {
+            max-width: 100px;
+            height: auto;
+        }
+        #map {
+            height: 400px;
+            width: 80%;
+            margin: 20px auto;
+        }
+    </style>
+    <script src="exif.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&callback=initMap" async defer></script>
+</head>
+<body>
+    <h1>Image Geolocation Data</h1>
+
+    <!-- Table for Image Metadata -->
+    <table id="imageTable">
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>Thumbnail</th>
+                <th>Geolocation (Lat, Long)</th>
+            </tr>
+        </thead>
+        <tbody id="imageBody"></tbody>
+    </table>
+
+    <!-- Table for Reverse Geocoded Addresses -->
+    <h1>Reverse Geocoded Addresses</h1>
+    <table id="addressTable">
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>Address</th>
+            </tr>
+        </thead>
+        <tbody id="addressBody"></tbody>
+    </table>
+
+    <!-- Google Map -->
+    <div id="map"></div>
+
+    <script>
+        const imageFiles = ['h1.jpg', 'h2.jpg', 'h3.jpg', 'h4.jpg'];
+        let imageData = [];
+        const geocoder = new google.maps.Geocoder();
+
+        // Function to convert DMS to Decimal Degrees
+        function dmsToDecimal(degrees, minutes, seconds, direction) {
+            let decimal = degrees + (minutes / 60) + (seconds / 3600);
+            if (direction === 'S' || direction === 'W') {
+                decimal = -decimal;
+            }
+            return decimal;
+        }
+
+        // Process each image for EXIF data
+        function loadImageData() {
+            const imageBody = document.getElementById('imageBody');
+            const addressBody = document.getElementById('addressBody');
+
+            imageFiles.forEach((file, index) => {
+                fetch(file)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        EXIF.getData(blob, function() {
+                            const lat = EXIF.getTag(this, 'GPSLatitude');
+                            const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+                            const lon = EXIF.getTag(this, 'GPSLongitude');
+                            const lonRef = EXIF.getTag(this, 'GPSLongitudeRef');
+
+                            let latitude = null;
+                            let longitude = null;
+
+                            if (lat && lon) {
+                                latitude = dmsToDecimal(lat[0], lat[1], lat[2], latRef);
+                                longitude = dmsToDecimal(lon[0], lon[1], lon[2], lonRef);
+                            }
+
+                            // Add to imageData array
+                            imageData.push({
+                                name: file,
+                                lat: latitude,
+                                lon: longitude
+                            });
+
+                            // Populate first table
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${file}</td>
+                                <td><img src="${file}" alt="${file}"></td>
+                                <td>${latitude ? latitude.toFixed(6) + ', ' + longitude.toFixed(6) : 'No GPS Data'}</td>
+                            `;
+                            imageBody.appendChild(row);
+
+                            // Reverse geocode if coordinates exist
+                            if (latitude && longitude) {
+                                reverseGeocode({ lat: latitude, lng: longitude }, file, index);
+                            } else {
+                                const addrRow = document.createElement('tr');
+                                addrRow.innerHTML = `
+                                    <td>${file}</td>
+                                    <td>No GPS Data</td>
+                                `;
+                                addressBody.appendChild(addrRow);
+                            }
+
+                            // Initialize map after all images are processed
+                            if (index === imageFiles.length - 1) {
+                                setTimeout(initMap, 1000); // Delay to ensure all data is ready
+                            }
+                        });
+                    })
+                    .catch(error => console.error('Error loading image:', error));
+            });
+        }
+
+        // Reverse Geocode Function
+        function reverseGeocode(latlng, file, index) {
+            const addressBody = document.getElementById('addressBody');
+            geocoder.geocode({ location: latlng }, (results, status) => {
+                const row = document.createElement('tr');
+                if (status === 'OK' && results[0]) {
+                    row.innerHTML = `
+                        <td>${file}</td>
+                        <td>${results[0].formatted_address}</td>
+                    `;
+                } else {
+                    row.innerHTML = `
+                        <td>${file}</td>
+                        <td>Geocoding failed: ${status}</td>
+                    `;
+                }
+                addressBody.appendChild(row);
+            });
+        }
+
+        // Initialize Google Map
+        function initMap() {
+            const beirut = { lat: 33.8938, lng: 35.5018 }; // Beirut, Lebanon coordinates
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: beirut,
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            });
+
+            // Add markers
+            imageData.forEach(image => {
+                if (image.lat && image.lon) {
+                    new google.maps.Marker({
+                        position: { lat: image.lat, lng: image.lon },
+                        map: map,
+                        title: image.name
+                    });
+                }
+            });
+        }
+
+        // Start loading image data
+        window.onload = loadImageData;
+    </script>
+</body>
+</html>
