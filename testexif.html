@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Metadata Display</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        img.thumbnail {
+            max-width: 100px;
+            max-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Image Metadata Table</h2>
+    <table id="metadataTable">
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>Thumbnail</th>
+                <th>Geolocation</th>
+            </tr>
+        </thead>
+        <tbody id="metadataBody"></tbody>
+    </table>
+
+    <h2>Reverse Geocoded Locations</h2>
+    <table id="locationTable">
+        <thead>
+            <tr>
+                <th>Image Name</th>
+                <th>Coordinates</th>
+                <th>Address</th>
+            </tr>
+        </thead>
+        <tbody id="locationBody"></tbody>
+    </table>
+
+    <!-- Include exif.js -->
+    <script src="exif.js"></script>
+    <!-- Include Google Maps API - Replace YOUR_API_KEY with your actual API key -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw"></script>
+    
+    <script>
+        // Array to store image files - replace with your actual image files
+        const imageFiles = [
+            'image1.jpg',
+            'image2.jpg',
+            'image3.jpg'
+            // Add more image filenames as needed
+        ];
+
+        // Initialize Google Maps Geocoder
+        const geocoder = new google.maps.Geocoder();
+
+        // Process each image
+        imageFiles.forEach(filename => {
+            const img = new Image();
+            img.src = filename;
+
+            img.onload = function() {
+                EXIF.getData(img, function() {
+                    const allMetaData = EXIF.getAllTags(this);
+                    
+                    // First table: Metadata
+                    const lat = convertDMSToDD(allMetaData.GPSLatitude, allMetaData.GPSLatitudeRef);
+                    const lon = convertDMSToDD(allMetaData.GPSLongitude, allMetaData.GPSLongitudeRef);
+                    const geoData = lat && lon ? `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}` : 'No geolocation data';
+
+                    const metadataRow = `
+                        <tr>
+                            <td>${filename}</td>
+                            <td><img src="${filename}" class="thumbnail" alt="${filename}"></td>
+                            <td>${geoData}</td>
+                        </tr>
+                    `;
+                    document.getElementById('metadataBody').innerHTML += metadataRow;
+
+                    // Second table: Reverse geocoding (only if coordinates exist)
+                    if (lat && lon) {
+                        reverseGeocode(lat, lon, filename);
+                    }
+                });
+            };
+        });
+
+        // Convert DMS to Decimal Degrees
+        function convertDMSToDD(dmsArray, ref) {
+            if (!dmsArray) return null;
+            const degrees = dmsArray[0];
+            const minutes = dmsArray[1];
+            const seconds = dmsArray[2];
+            let dd = degrees + minutes/60 + seconds/3600;
+            if (ref === 'S' || ref === 'W') {
+                dd = -dd;
+            }
+            return dd;
+        }
+
+        // Reverse geocode coordinates
+        function reverseGeocode(lat, lon, filename) {
+            const latlng = { lat: parseFloat(lat), lng: parseFloat(lon) };
+            geocoder.geocode({ location: latlng }, (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const locationRow = `
+                        <tr>
+                            <td>${filename}</td>
+                            <td>Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}</td>
+                            <td>${results[0].formatted_address}</td>
+                        </tr>
+                    `;
+                    document.getElementById('locationBody').innerHTML += locationRow;
+                } else {
+                    const locationRow = `
+                        <tr>
+                            <td>${filename}</td>
+                            <td>Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}</td>
+                            <td>Unable to geocode location</td>
+                        </tr>
+                    `;
+                    document.getElementById('locationBody').innerHTML += locationRow;
+                }
+            });
+        }
+    </script>
+</body>
+</html>
