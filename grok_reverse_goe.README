@@ -3,3 +3,9 @@ How do I create a html which reverse geocodes using Google Map APIs a list  of l
 and
 it returned html code which i uploaded to 
 https://scanos.github.io/qwentest/reverse_geo.html
+
+also I decided to see if I could bypass Google and use an AI system API. Grok was the only one that worked with this prompt
+
+Help me create a walking route plan between the locations described in this lat long array [33.894627,35.515486 33.887833,35.515369,33.893461,35.516386] and show actual locations using reverse geo-coding
+
+now I need to build a system which uses exif to extract GPS data to pass to Grok api
