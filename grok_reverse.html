@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Walking Route Planner</title>
     <style>
-        #results { margin-top: 20px; font-family: Arial, sans-serif; }
+        #map { height: 400px; width: 100%; }
+        #route-info { margin-top: 20px; }
     </style>
 </head>
 <body>
     <h1>Walking Route Planner</h1>
-    <button onclick="getRoute()">Generate Route</button>
-    <div id="results"></div>
+    <div id="map"></div>
+    <div id="route-info"></div>
 
     <script>
         // Your latitude/longitude array
@@ -22,31 +23,75 @@
             [33.89487222222222, 35.515525]
         ];
 
-        async function getRoute() {
-            try {
-                // Simulate sending the array to Grok API
-                const response = await fetch('https://xai-grok-api-endpoint/route', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ locations: locations })
-                });
+        // Function to initialize the map and process the route
+        function initMap() {
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 15,
+                center: { lat: locations[0][0], lng: locations[0][1] }
+            });
 
-                const data = await response.json();
-                displayResults(data);
-            } catch (error) {
-                document.getElementById('results').innerHTML = `Error: ${error.message}`;
-            }
+            const geocoder = new google.maps.Geocoder();
+            const directionsService = new google.maps.DirectionsService();
+            const directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+
+            // Reverse geocode each location and build the route
+            processLocations(geocoder, directionsService, directionsRenderer);
         }
 
-        function displayResults(data) {
-            const resultsDiv = document.getElementById('results');
-            let html = '<h2>Walking Route</h2><ol>';
-            data.route.forEach((stop, index) => {
-                html += `<li>Step ${index + 1}: ${stop.address} (Lat: ${stop.lat}, Lng: ${stop.lng})</li>`;
+        // Function to process locations
+        function processLocations(geocoder, directionsService, directionsRenderer) {
+            const routeInfo = document.getElementById('route-info');
+            let output = '<h2>Route Plan</h2><ol>';
+            const waypoints = [];
+
+            // Process each coordinate pair
+            Promise.all(locations.map((coords, index) => {
+                return new Promise((resolve) => {
+                    const latLng = { lat: coords[0], lng: coords[1] };
+                    geocoder.geocode({ location: latLng }, (results, status) => {
+                        if (status === 'OK' && results[0]) {
+                            const address = results[0].formatted_address;
+                            output += `<li>Location ${index + 1}: ${address} (${coords[0]}, ${coords[1]})</li>`;
+                            
+                            // Add waypoints (excluding start and end)
+                            if (index > 0 && index < locations.length - 1) {
+                                waypoints.push({
+                                    location: latLng,
+                                    stopover: true
+                                });
+                            }
+                            resolve();
+                        } else {
+                            output += `<li>Location ${index + 1}: Unable to geocode (${coords[0]}, ${coords[1]})</li>`;
+                            resolve();
+                        }
+                    });
+                });
+            })).then(() => {
+                output += '</ol>';
+                routeInfo.innerHTML = output;
+
+                // Calculate walking route
+                directionsService.route({
+                    origin: { lat: locations[0][0], lng: locations[0][1] },
+                    destination: { lat: locations[locations.length - 1][0], lng: locations[locations.length - 1][1] },
+                    waypoints: waypoints,
+                    travelMode: 'WALKING'
+                }, (response, status) => {
+                    if (status === 'OK') {
+                        directionsRenderer.setDirections(response);
+                        const route = response.routes[0];
+                        output += `<p>Total Distance: ${route.legs.reduce((sum, leg) => sum + leg.distance.value, 0) / 1000} km</p>`;
+                        routeInfo.innerHTML = output;
+                    } else {
+                        routeInfo.innerHTML += `<p>Route calculation failed: ${status}</p>`;
+                    }
+                });
             });
-            html += '</ol>';
-            resultsDiv.innerHTML = html;
         }
     </script>
+
+    <!-- Load Google Maps API (replace YOUR_API_KEY with your actual key) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
 </body>
 </html>
