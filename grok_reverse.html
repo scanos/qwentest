@@ -5,17 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Walking Route Planner</title>
     <style>
-        #map { height: 400px; width: 100%; }
-        #route-info { margin-top: 20px; }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #results { margin-top: 20px; }
     </style>
 </head>
 <body>
     <h1>Walking Route Planner</h1>
-    <div id="map"></div>
-    <div id="route-info"></div>
+    <p>Using coordinates: <pre id="coords"></pre></p>
+    <button onclick="generateRoute()">Generate Route</button>
+    <div id="results"></div>
 
     <script>
-        // Your latitude/longitude array
+        // Your latitude-longitude array
         const locations = [
             [33.89462777777778, 35.51548611111111],
             [33.88783333333333, 35.515369444444445],
@@ -23,75 +24,47 @@
             [33.89487222222222, 35.515525]
         ];
 
-        // Function to initialize the map and process the route
-        function initMap() {
-            const map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 15,
-                center: { lat: locations[0][0], lng: locations[0][1] }
-            });
+        // Display the initial coordinates
+        document.getElementById("coords").textContent = JSON.stringify(locations, null, 2);
 
-            const geocoder = new google.maps.Geocoder();
-            const directionsService = new google.maps.DirectionsService();
-            const directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+        // Function to simulate sending data to Grok and getting results
+        async function generateRoute() {
+            // In a real scenario, this would be a fetch to an API endpoint
+            // Here, we simulate the response from Grok
+            const simulatedResponse = {
+                locations: [
+                    { lat: 33.89462777777778, lng: 35.51548611111111, address: "Rue Abdel Wahab El Inglizi, Achrafieh, Beirut" },
+                    { lat: 33.88783333333333, lng: 35.515369444444445, address: "Rue Monot, Achrafieh, Beirut" },
+                    { lat: 33.89488333333333, lng: 35.51550833333334, address: "Rue Sursock, Achrafieh, Beirut" },
+                    { lat: 33.89487222222222, lng: 35.515525, address: "Rue Abdel Wahab El Inglizi, Achrafieh, Beirut" }
+                ],
+                route: [
+                    "Start at Rue Abdel Wahab El Inglizi",
+                    "Walk south ~0.75 km to Rue Monot (~10-12 min)",
+                    "Walk north ~0.75 km to Rue Sursock (~10-12 min)",
+                    "Walk east a few meters to Rue Abdel Wahab El Inglizi (~1 min)",
+                    "Total: ~1.5 km, 25-30 min"
+                ]
+            };
 
-            // Reverse geocode each location and build the route
-            processLocations(geocoder, directionsService, directionsRenderer);
-        }
+            // Simulate API call delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Function to process locations
-        function processLocations(geocoder, directionsService, directionsRenderer) {
-            const routeInfo = document.getElementById('route-info');
-            let output = '<h2>Route Plan</h2><ol>';
-            const waypoints = [];
-
-            // Process each coordinate pair
-            Promise.all(locations.map((coords, index) => {
-                return new Promise((resolve) => {
-                    const latLng = { lat: coords[0], lng: coords[1] };
-                    geocoder.geocode({ location: latLng }, (results, status) => {
-                        if (status === 'OK' && results[0]) {
-                            const address = results[0].formatted_address;
-                            output += `<li>Location ${index + 1}: ${address} (${coords[0]}, ${coords[1]})</li>`;
-                            
-                            // Add waypoints (excluding start and end)
-                            if (index > 0 && index < locations.length - 1) {
-                                waypoints.push({
-                                    location: latLng,
-                                    stopover: true
-                                });
-                            }
-                            resolve();
-                        } else {
-                            output += `<li>Location ${index + 1}: Unable to geocode (${coords[0]}, ${coords[1]})</li>`;
-                            resolve();
-                        }
-                    });
-                });
-            })).then(() => {
-                output += '</ol>';
-                routeInfo.innerHTML = output;
-
-                // Calculate walking route
-                directionsService.route({
-                    origin: { lat: locations[0][0], lng: locations[0][1] },
-                    destination: { lat: locations[locations.length - 1][0], lng: locations[locations.length - 1][1] },
-                    waypoints: waypoints,
-                    travelMode: 'WALKING'
-                }, (response, status) => {
-                    if (status === 'OK') {
-                        directionsRenderer.setDirections(response);
-                        const route = response.routes[0];
-                        output += `<p>Total Distance: ${route.legs.reduce((sum, leg) => sum + leg.distance.value, 0) / 1000} km</p>`;
-                        routeInfo.innerHTML = output;
-                    } else {
-                        routeInfo.innerHTML += `<p>Route calculation failed: ${status}</p>`;
-                    }
-                });
-            });
+            // Display results
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = `
+                <h2>Locations:</h2>
+                <ul>
+                    ${simulatedResponse.locations.map(loc => 
+                        `<li>Lat: ${loc.lat}, Lng: ${loc.lng} - ${loc.address}</li>`
+                    ).join("")}
+                </ul>
+                <h2>Walking Route:</h2>
+                <ol>
+                    ${simulatedResponse.route.map(step => `<li>${step}</li>`).join("")}
+                </ol>
+            `;
         }
     </script>
-
-    <!-- Load Google Maps API (replace YOUR_API_KEY with your actual key) -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap" async defer></script>
 </body>
 </html>
