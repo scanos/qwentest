@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Walking Route Plan</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map { height: 500px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="directions"></div>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        const coordinates = [33.89462777777778, 35.51548611111111, 33.88783333333333, 35.515369444444445, 33.89488333333333, 35.51550833333334, 33.89487222222222, 35.515525];
+        const points = coordinates.reduce((acc, val, i, arr) => {
+            if (i % 2 === 0) acc.push({ lat: val, lon: arr[i+1] });
+            return acc;
+        }, []);
+
+        async function getAddresses() {
+            const addresses = [];
+            for (const point of points) {
+                const response = await fetch(`https://cors-anywhere.herokuapp.com/https://nominatim.openstreetmap.org/reverse?lat=${point.lat}&lon=${point.lon}&format=json`);
+                const data = await response.json();
+                addresses.push(data.display_name);
+            }
+            return addresses;
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2 - lat1) * Math.PI/180;
+            const Δλ = (lon2 - lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return (R * c / 1000).toFixed(2);
+        }
+
+        const map = L.map('map').setView([points[0].lat, points[0].lon], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        async function setup() {
+            const addresses = await getAddresses();
+            points.forEach((point, i) => {
+                L.marker([point.lat, point.lon]).addTo(map)
+                    .bindPopup(addresses[i]);
+            });
+            L.polyline(points.map(p => [p.lat, p.lon])).addTo(map);
+            const directions = [];
+            for (let i = 0; i < points.length - 1; i++) {
+                const distance = calculateDistance(points[i].lat, points[i].lon, points[i+1].lat, points[i+1].lon);
+                directions.push(`Walk from ${addresses[i]} to ${addresses[i+1]} - Distance: ${distance} km`);
+            }
+            document.getElementById('directions').innerHTML = directions.join('<br>');
+        }
+        setup();
+    </script>
+</body>
+</html>
