@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Walking Route Planner</title>
     <style>
-        #map { height: 400px; width: 100%; }
-        #route-info { margin: 20px 0; }
-        .location { margin: 10px 0; }
+        #results { margin-top: 20px; font-family: Arial, sans-serif; }
     </style>
 </head>
 <body>
-    <h2>Walking Route Planner</h2>
-    <div id="route-info"></div>
-    <div id="map"></div>
+    <h1>Walking Route Planner</h1>
+    <button onclick="getRoute()">Generate Route</button>
+    <div id="results"></div>
 
     <script>
         // Your latitude/longitude array
@@ -22,97 +22,31 @@
             [33.89487222222222, 35.515525]
         ];
 
-        // Function to get addresses using Grok's capabilities (simulated)
-        async function getAddressesFromCoordinates(coordsArray) {
-            const addresses = [];
-            // In a real implementation, you'd make API calls to me here
-            // For now, I'll provide the actual Beirut locations based on my knowledge
-            const knownAddresses = [
-                "Near St. Mary Orthodox Church, Achrafieh, Beirut, Lebanon",
-                "Near Mohammed Al-Amin Mosque, Downtown Beirut, Lebanon",
-                "Near Sioufi Garden, Achrafieh, Beirut, Lebanon",
-                "Near ABC Achrafieh Mall, Beirut, Lebanon"
-            ];
-            
-            coordsArray.forEach((coord, index) => {
-                addresses.push({
-                    coordinates: coord,
-                    address: knownAddresses[index]
-                });
-            });
-            
-            return addresses;
-        }
-
-        // Function to calculate approximate walking distance (Haversine formula)
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Earth's radius in meters
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                     Math.cos(φ1) * Math.cos(φ2) *
-                     Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distance = R * c; // in meters
-            return distance;
-        }
-
-        // Main function to create the route plan
-        async function createRoutePlan() {
-            const routeInfo = document.getElementById('route-info');
-            routeInfo.innerHTML = '<h3>Walking Route</h3>';
-
+        async function getRoute() {
             try {
-                // Get addresses using reverse geocoding
-                const locationsWithAddresses = await getAddressesFromCoordinates(locations);
-                
-                // Build the route display
-                let totalDistance = 0;
-                let routeHTML = '<ol>';
-                
-                locationsWithAddresses.forEach((location, index) => {
-                    routeHTML += `<li class="location">
-                        Point ${index + 1}: ${location.address} 
-                        (${location.coordinates[0]}, ${location.coordinates[1]})
-                    </li>`;
-
-                    // Calculate distance to next point (if not last point)
-                    if (index < locationsWithAddresses.length - 1) {
-                        const distance = calculateDistance(
-                            location.coordinates[0],
-                            location.coordinates[1],
-                            locationsWithAddresses[index + 1].coordinates[0],
-                            locationsWithAddresses[index + 1].coordinates[1]
-                        );
-                        totalDistance += distance;
-                        routeHTML += `<p>Distance to next: ${(distance/1000).toFixed(2)} km</p>`;
-                    }
+                // Simulate sending the array to Grok API
+                const response = await fetch('https://xai-grok-api-endpoint/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locations: locations })
                 });
 
-                routeHTML += '</ol>';
-                routeHTML += `<p>Total Distance: ${(totalDistance/1000).toFixed(2)} km</p>`;
-                routeInfo.innerHTML += routeHTML;
-
-                // Optional: Initialize a simple map (you'd need a mapping API for a real map)
-                initMap(locations);
+                const data = await response.json();
+                displayResults(data);
             } catch (error) {
-                routeInfo.innerHTML += `<p>Error: ${error.message}</p>`;
+                document.getElementById('results').innerHTML = `Error: ${error.message}`;
             }
         }
 
-        // Simple map initialization (placeholder - requires a mapping API)
-        function initMap(coordsArray) {
-            const mapDiv = document.getElementById('map');
-            mapDiv.innerHTML = 'Map would be displayed here with points: ' + 
-                coordsArray.map(coord => `(${coord[0]}, ${coord[1]})`).join(' → ');
-            // In practice, integrate with Google Maps or similar API
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            let html = '<h2>Walking Route</h2><ol>';
+            data.route.forEach((stop, index) => {
+                html += `<li>Step ${index + 1}: ${stop.address} (Lat: ${stop.lat}, Lng: ${stop.lng})</li>`;
+            });
+            html += '</ol>';
+            resultsDiv.innerHTML = html;
         }
-
-        // Start the route planning when page loads
-        window.onload = createRoutePlan;
     </script>
 </body>
 </html>
