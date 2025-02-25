@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Walking Route Planner</title>
+    <title>Walking Route Plan</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #results { margin-top: 20px; }
+        #results { margin-top: 20px; font-family: Arial, sans-serif; }
     </style>
 </head>
 <body>
-    <h1>Walking Route Planner</h1>
-    <p>Using coordinates: <pre id="coords"></pre></p>
+    <h1>Create Walking Route Plan</h1>
     <button onclick="generateRoute()">Generate Route</button>
     <div id="results"></div>
 
     <script>
-        // Your latitude-longitude array
+        // Your latitude/longitude array
         const locations = [
             [33.89462777777778, 35.51548611111111],
             [33.88783333333333, 35.515369444444445],
@@ -24,46 +22,43 @@
             [33.89487222222222, 35.515525]
         ];
 
-        // Display the initial coordinates
-        document.getElementById("coords").textContent = JSON.stringify(locations, null, 2);
-
-        // Function to simulate sending data to Grok and getting results
         async function generateRoute() {
-            // In a real scenario, this would be a fetch to an API endpoint
-            // Here, we simulate the response from Grok
-            const simulatedResponse = {
-                locations: [
-                    { lat: 33.89462777777778, lng: 35.51548611111111, address: "Rue Abdel Wahab El Inglizi, Achrafieh, Beirut" },
-                    { lat: 33.88783333333333, lng: 35.515369444444445, address: "Rue Monot, Achrafieh, Beirut" },
-                    { lat: 33.89488333333333, lng: 35.51550833333334, address: "Rue Sursock, Achrafieh, Beirut" },
-                    { lat: 33.89487222222222, lng: 35.515525, address: "Rue Abdel Wahab El Inglizi, Achrafieh, Beirut" }
-                ],
-                route: [
-                    "Start at Rue Abdel Wahab El Inglizi",
-                    "Walk south ~0.75 km to Rue Monot (~10-12 min)",
-                    "Walk north ~0.75 km to Rue Sursock (~10-12 min)",
-                    "Walk east a few meters to Rue Abdel Wahab El Inglizi (~1 min)",
-                    "Total: ~1.5 km, 25-30 min"
-                ]
-            };
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = "Loading...";
 
-            // Simulate API call delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Simulate sending the array to Grok (in reality, you'd use an API endpoint)
+            const geocodedResults = await geocodeLocations(locations);
+            const routePlan = createRoutePlan(geocodedResults);
 
             // Display results
-            const resultsDiv = document.getElementById("results");
-            resultsDiv.innerHTML = `
-                <h2>Locations:</h2>
-                <ul>
-                    ${simulatedResponse.locations.map(loc => 
-                        `<li>Lat: ${loc.lat}, Lng: ${loc.lng} - ${loc.address}</li>`
-                    ).join("")}
-                </ul>
-                <h2>Walking Route:</h2>
-                <ol>
-                    ${simulatedResponse.route.map(step => `<li>${step}</li>`).join("")}
-                </ol>
-            `;
+            resultsDiv.innerHTML = routePlan;
+        }
+
+        async function geocodeLocations(locations) {
+            const geocoded = [];
+            for (const [lat, lon] of locations) {
+                // Call Nominatim API
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
+                );
+                const data = await response.json();
+                geocoded.push({
+                    lat,
+                    lon,
+                    address: data.display_name || "Unknown location"
+                });
+            }
+            return geocoded;
+        }
+
+        function createRoutePlan(geocodedResults) {
+            let html = "<h2>Walking Route Plan</h2><ol>";
+            geocodedResults.forEach((point, index) => {
+                html += `<li><strong>Point ${index + 1}</strong>: ${point.address} (Lat: ${point.lat}, Lon: ${point.lon})</li>`;
+            });
+            html += "</ol>";
+            html += "<p><em>Note: This is a simple sequence. For detailed walking directions, use a routing service like OSRM.</em></p>";
+            return html;
         }
     </script>
 </body>
