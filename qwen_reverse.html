@@ -4,24 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Walking Route Plan</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <style>
-  #map {
-    height: 500px;
-    width: 100%;
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-  }
-  th, td {
-    border: 1px solid black;
-    padding: 8px;
-    text-align: center;
-  }
+  #map { height: 500px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid black; padding: 8px; text-align: center; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
 <div id="map"></div>
@@ -34,8 +23,7 @@
       <th>Time (min)</th>
     </tr>
   </thead>
-  <tbody id="routeTableBody">
-  </tbody>
+  <tbody id="routeTableBody"></tbody>
   <tfoot>
     <tr>
       <td colspan="2"><strong>Total</strong></td>
@@ -46,79 +34,71 @@
 </table>
 
 <script>
-  const latLngArray = [
-    [33.89462777777778, 35.51548611111111],
-    [33.88783333333333, 35.515369444444445],
-    [33.89488333333333, 35.51550833333334],
-    [33.89487222222222, 35.515525]
-  ];
+const locations = [
+  [33.89462777777778, 35.51548611111111],
+  [33.88783333333333, 35.515369444444445],
+  [33.89488333333333, 35.51550833333334],
+  [33.89487222222222, 35.515525]
+];
 
-  const map = L.map('map').setView(latLngArray[0], 15);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors'
-  }).addTo(map);
+let map = L.map('map').setView(locations[0], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
-  let totalDistance = 0;
-  let totalTime = 0;
+// Function to reverse geocode
+function reverseGeocode(latlng) {
+  return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latlng[0]}&lon=${latlng[1]}&format=json`)
+    .then(response => response.json())
+    .then(data => data.display_name.split(",")[0]);
+}
 
-  function reverseGeocode(lat, lon) {
-    return fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-      .then(response => response.json())
-      .then(data => data.display_name.split(', ')[0]);
-  }
+// Add markers and get addresses
+Promise.all(locations.map(reverseGeocode))
+  .then(addresses => {
+    locations.forEach((loc, i) => {
+      L.marker(loc).addTo(map).bindPopup(addresses[i]).openPopup();
+    });
 
-  async function calculateRoute() {
-    for (let i = 0; i < latLngArray.length - 1; i++) {
-      const fromLatLng = latLngArray[i];
-      const toLatLng = latLngArray[i + 1];
+    // Calculate walking directions
+    const routeTableBody = document.getElementById('routeTableBody');
+    let totalDistance = 0;
+    let totalTime = 0;
 
-      // Draw lines on the map
-      L.polyline([fromLatLng, toLatLng], { color: 'blue' }).addTo(map);
+    for (let i = 0; i < locations.length - 1; i++) {
+      const from = locations[i];
+      const to = locations[i + 1];
 
-      // Reverse geocoding
-      const fromName = await reverseGeocode(fromLatLng[0], fromLatLng[1]);
-      const toName = await reverseGeocode(toLatLng[0], toLatLng[1]);
+      fetch(`https://router.project-osrm.org/route/v1/foot/${from[1]},${from[0]};${to[1]},${to[0]}?overview=false`)
+        .then(response => response.json())
+        .then(data => {
+          const leg = data.routes[0].legs[0];
+          const distance = Math.round(leg.distance);
+          const duration = Math.round(leg.duration / 60); // Convert seconds to minutes
 
-      // Calculate distance and time
-      const distance = Math.sqrt(
-        Math.pow(toLatLng[0] - fromLatLng[0], 2) +
-        Math.pow(toLatLng[1] - fromLatLng[1], 2)
-      ) * 111000; // Approximate distance in meters
-      const time = Math.ceil(distance / 80); // Walking speed ~80m/min
+          totalDistance += distance;
+          totalTime += duration;
 
-      totalDistance += distance;
-      totalTime += time;
+          const row = `<tr>
+            <td>${addresses[i]}</td>
+            <td>${addresses[i + 1]}</td>
+            <td>${distance}</td>
+            <td>${duration}</td>
+          </tr>`;
+          routeTableBody.innerHTML += row;
 
-      // Add row to table
-      const row = `
-        <tr>
-          <td>${fromName}</td>
-          <td>${toName}</td>
-          <td>${Math.round(distance)}</td>
-          <td>${time}</td>
-        </tr>
-      `;
-      document.getElementById('routeTableBody').insertAdjacentHTML('beforeend', row);
+          if (i === locations.length - 2) {
+            document.getElementById('totalDistance').textContent = totalDistance + ' m';
+            document.getElementById('totalTime').textContent = totalTime + ' min';
+          }
+
+          // Draw route on the map
+          const routeCoordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+          L.polyline(routeCoordinates, { color: 'blue' }).addTo(map);
+        });
     }
-
-    // Update total distance and time
-    document.getElementById('totalDistance').textContent = `${Math.round(totalDistance)} m`;
-    document.getElementById('totalTime').textContent = `${Math.ceil(totalTime / 60)} min`;
-  }
-
-  calculateRoute();
-
-  // Mark locations on the map
-  latLngArray.forEach((latLng, index) => {
-    L.marker(latLng).addTo(map)
-      .bindPopup(`Location ${index + 1}`)
-      .openPopup();
   });
-
-  // Fit bounds to include all markers
-  const bounds = L.latLngBounds(latLngArray);
-  map.fitBounds(bounds);
 </script>
 </body>
 </html>
