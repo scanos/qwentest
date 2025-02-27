@@ -1,1 +1,81 @@
-Help me create a single web page showing my GPS coordinates based on the location settings on my smart phone . Add a section to request the user to allow access to the location on the smart phone and explain why I'm still getting a user denied notification 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPS Coordinates</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    line-height: 1.6;
+  }
+  #coordinates {
+    margin-top: 20px;
+    font-weight: bold;
+  }
+  #location-explanation {
+    margin-top: 20px;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+
+<h1>GPS Coordinates</h1>
+
+<div id="coordinates">Loading GPS coordinates...</div>
+
+<div id="location-request">
+  <p>Please allow this website to access your location so we can display your GPS coordinates.</p>
+  <button onclick="requestLocation()">Allow Location Access</button>
+</div>
+
+<div id="location-explanation" style="display:none;">
+  <p>If you're still receiving a "user denied" notification, it may be because:</p>
+  <ul>
+    <li>You have explicitly blocked location access for this site in your browser settings.</li>
+    <li>Your device's location services are turned off.</li>
+    <li>You are using a browser or environment that does not support geolocation.</li>
+  </ul>
+  <p>To resolve this, check your browser's permissions and ensure location services are enabled on your device.</p>
+</div>
+
+<script>
+function requestLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(showPosition, showError);
+    document.getElementById('location-request').style.display = 'none';
+    document.getElementById('location-explanation').style.display = 'block';
+  } else {
+    document.getElementById('coordinates').textContent = "Geolocation is not supported by this browser.";
+  }
+}
+
+function showPosition(position) {
+  const coords = `Latitude: ${position.coords.latitude}, Longitude: ${position.coords.longitude}`;
+  document.getElementById('coordinates').textContent = coords;
+}
+
+function showError(error) {
+  let errorMessage = "";
+  switch(error.code) {
+    case error.PERMISSION_DENIED:
+      errorMessage = "User denied the request for Geolocation.";
+      break;
+    case error.POSITION_UNAVAILABLE:
+      errorMessage = "Location information is unavailable.";
+      break;
+    case error.TIMEOUT:
+      errorMessage = "The request to get user location timed out.";
+      break;
+    case error.UNKNOWN_ERROR:
+      errorMessage = "An unknown error occurred.";
+      break;
+  }
+  document.getElementById('coordinates').textContent = errorMessage;
+}
+</script>
+
+</body>
+</html>
