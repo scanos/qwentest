@@ -3,94 +3,74 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QWEN GPS Test - phonegps.html</title>
+<title>QWEN GPS Test</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    padding: 0;
-  }
-  #location-info {
-    margin-top: 20px;
-  }
-  #error-message {
-    color: red;
-    margin-top: 20px;
-  }
-  #instructions {
-    margin-top: 20px;
+  #map {
+    width: 100%;
+    height: 400px;
   }
 </style>
 </head>
 <body>
-
 <h1>QWEN GPS Test</h1>
 
-<p id="status">Requesting location access...</p>
-<div id="location-info"></div>
-<div id="error-message"></div>
-<div id="instructions">
-  <p>If you see the message "User denied the request for Geolocation," please follow these steps:</p>
-  <ol>
-    <li>Check your browser settings and ensure location access is enabled.</li>
-    <li>On your smartphone, go to Settings > Privacy > Location Services and allow this app to access your location.</li>
-    <li>Refresh the page after enabling location access.</li>
-  </ol>
-</div>
+<p id="location-status">Requesting location access...</p>
+<p id="location-denied-help" style="display: none;">
+  If you see the message "User denied the request for Geolocation," please enable location services in your browser settings and refresh the page.
+</p>
+
+<div id="coordinates"></div>
+<div id="address"></div>
+<div id="map"></div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-  const status = document.getElementById('status');
-  const locationInfo = document.getElementById('location-info');
-  const errorMessage = document.getElementById('error-message');
-
-  if (!navigator.geolocation) {
-    status.textContent = "Geolocation is not supported by your browser.";
-    return;
-  }
-
-  status.textContent = "Locating...";
-
+if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(
     function(position) {
       const latitude = position.coords.latitude;
       const longitude = position.coords.longitude;
 
-      status.textContent = "Location found!";
-      locationInfo.innerHTML = `<p>Your GPS Coordinates: Latitude: ${latitude}, Longitude: ${longitude}</p>`;
-      
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
+      document.getElementById('location-status').textContent = 'Your GPS coordinates:';
+      document.getElementById('coordinates').innerHTML = `Latitude: ${latitude}, Longitude: ${longitude}`;
+
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
         .then(response => response.json())
         .then(data => {
-          if (data.display_name) {
-            locationInfo.innerHTML += `<p>Your Location: ${data.display_name}</p>`;
-          } else {
-            errorMessage.textContent = "Failed to reverse geocode the coordinates.";
-          }
+          document.getElementById('address').innerHTML = `<strong>Your Location:</strong> ${data.display_name}`;
         })
         .catch(error => {
-          errorMessage.textContent = "Error fetching reverse geocoding data.";
+          console.error('Error reversing geolocation:', error);
+          document.getElementById('address').textContent = 'Failed to retrieve address.';
         });
+
+      // Initialize OpenStreetMap with user's location
+      const mapDiv = document.getElementById('map');
+      const map = L.map('map').setView([latitude, longitude], 15);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      L.marker([latitude, longitude]).addTo(map)
+        .bindPopup("Your Location")
+        .openPopup();
     },
     function(error) {
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage.textContent = "User denied the request for Geolocation.";
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMessage.textContent = "Location information is unavailable.";
-          break;
-        case error.TIMEOUT:
-          errorMessage.textContent = "The request to get user location timed out.";
-          break;
-        default:
-          errorMessage.textContent = "An unknown error occurred.";
-          break;
+      if (error.code === error.PERMISSION_DENIED) {
+        document.getElementById('location-status').textContent = 'User denied the request for Geolocation.';
+        document.getElementById('location-denied-help').style.display = 'block';
+      } else {
+        document.getElementById('location-status').textContent = 'Error retrieving location.';
       }
     }
   );
-});
+} else {
+  document.getElementById('location-status').textContent = 'Geolocation is not supported by this browser.';
+}
 </script>
 
+<!-- Include Leaflet.js for the map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </body>
 </html>
