@@ -1,81 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPS Coordinates</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    line-height: 1.6;
-  }
-  #coordinates {
-    margin-top: 20px;
-    font-weight: bold;
-  }
-  #location-explanation {
-    margin-top: 20px;
-    color: #555;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QWEN GPS Test - phonegps.html</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        #coordinates, #address {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+        #error {
+            color: red;
+            display: none;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #ffe6e6;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
 </head>
 <body>
+    <h1>QWEN GPS Test - phonegps.html</h1>
+    
+    <div id="permission-request">
+        <p>Please allow location access to see your GPS coordinates.</p>
+        <button onclick="getLocation()">Grant Location Access</button>
+    </div>
 
-<h1>GPS Coordinates</h1>
+    <div id="coordinates"></div>
+    <div id="address"></div>
+    
+    <div id="error">
+        <p><strong>Error:</strong> User denied the request for Geolocation.</p>
+        <p>To fix this:</p>
+        <ul>
+            <li>On Android: Settings > Apps > [Your Browser] > Permissions > Enable Location</li>
+            <li>On iOS: Settings > Privacy > Location Services > [Your Browser] > Select "While Using the App"</li>
+            <li>After enabling, refresh the page and click "Grant Location Access" again</li>
+        </ul>
+    </div>
 
-<div id="coordinates">Loading GPS coordinates...</div>
+    <script>
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition, showError);
+            } else {
+                document.getElementById("coordinates").innerHTML = "Geolocation is not supported by this browser.";
+            }
+        }
 
-<div id="location-request">
-  <p>Please allow this website to access your location so we can display your GPS coordinates.</p>
-  <button onclick="requestLocation()">Allow Location Access</button>
-</div>
+        function showPosition(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            
+            document.getElementById("permission-request").style.display = "none";
+            document.getElementById("coordinates").innerHTML = 
+                `Latitude: ${latitude}<br>Longitude: ${longitude}`;
+            
+            // Reverse geocode using OpenStreetMap's Nominatim API
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        document.getElementById("address").innerHTML = 
+                            `Location: ${data.display_name}`;
+                    } else {
+                        document.getElementById("address").innerHTML = 
+                            "Unable to determine exact location";
+                    }
+                })
+                .catch(error => {
+                    document.getElementById("address").innerHTML = 
+                        "Error fetching location data";
+                    console.error('Error:', error);
+                });
+        }
 
-<div id="location-explanation" style="display:none;">
-  <p>If you're still receiving a "user denied" notification, it may be because:</p>
-  <ul>
-    <li>You have explicitly blocked location access for this site in your browser settings.</li>
-    <li>Your device's location services are turned off.</li>
-    <li>You are using a browser or environment that does not support geolocation.</li>
-  </ul>
-  <p>To resolve this, check your browser's permissions and ensure location services are enabled on your device.</p>
-</div>
-
-<script>
-function requestLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(showPosition, showError);
-    document.getElementById('location-request').style.display = 'none';
-    document.getElementById('location-explanation').style.display = 'block';
-  } else {
-    document.getElementById('coordinates').textContent = "Geolocation is not supported by this browser.";
-  }
-}
-
-function showPosition(position) {
-  const coords = `Latitude: ${position.coords.latitude}, Longitude: ${position.coords.longitude}`;
-  document.getElementById('coordinates').textContent = coords;
-}
-
-function showError(error) {
-  let errorMessage = "";
-  switch(error.code) {
-    case error.PERMISSION_DENIED:
-      errorMessage = "User denied the request for Geolocation.";
-      break;
-    case error.POSITION_UNAVAILABLE:
-      errorMessage = "Location information is unavailable.";
-      break;
-    case error.TIMEOUT:
-      errorMessage = "The request to get user location timed out.";
-      break;
-    case error.UNKNOWN_ERROR:
-      errorMessage = "An unknown error occurred.";
-      break;
-  }
-  document.getElementById('coordinates').textContent = errorMessage;
-}
-</script>
-
+        function showError(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    document.getElementById("error").style.display = "block";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    document.getElementById("coordinates").innerHTML = 
+                        "Location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    document.getElementById("coordinates").innerHTML = 
+                        "The request to get user location timed out.";
+                    break;
+                default:
+                    document.getElementById("coordinates").innerHTML = 
+                        "An unknown error occurred.";
+                    break;
+            }
+        }
+    </script>
 </body>
 </html>
