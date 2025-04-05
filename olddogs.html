@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Old Seadogs FC - Veteran Football Team</title>
+    <style>
+        :root {
+            --primary-color: #1a3e72; /* Navy blue */
+            --secondary-color: #f0c808; /* Gold */
+            --accent-color: #e74c3c; /* Red */
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: var(--dark-color);
+            background-color: var(--light-color);
+        }
+        
+        header {
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+        }
+        
+        .logo {
+            width: 150px;
+            height: 150px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 5px solid var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            color: var(--secondary-color);
+        }
+        
+        nav {
+            background-color: var(--primary-color);
+            padding: 1rem 0;
+        }
+        
+        nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+        
+        nav li {
+            margin: 0 1rem;
+        }
+        
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        
+        nav a:hover {
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .section {
+            margin-bottom: 3rem;
+        }
+        
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--secondary-color);
+            padding-bottom: 0.5rem;
+            display: inline-block;
+        }
+        
+        .team-photo {
+            width: 100%;
+            max-height: 500px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin: 1rem 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .match-results {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        .match-results th, .match-results td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .match-results th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .match-results tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        
+        .match-results tr:hover {
+            background-color: #ddd;
+        }
+        
+        .player-card {
+            background-color: white;
+            border-radius: 5px;
+            padding: 1rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+        }
+        
+        .player-photo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 1rem;
+            border: 3px solid var(--secondary-color);
+        }
+        
+        .player-info h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .player-info p {
+            margin: 0.5rem 0;
+        }
+        
+        .btn {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: var(--primary-color);
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        .btn:hover {
+            background-color: #e0b908;
+        }
+        
+        footer {
+            background-color: var(--primary-color);
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 2rem;
+        }
+        
+        .social-links a {
+            color: white;
+            margin: 0 0.5rem;
+            font-size: 1.5rem;
+            transition: color 0.3s;
+        }
+        
+        .social-links a:hover {
+            color: var(--secondary-color);
+        }
+        
+        @media (max-width: 768px) {
+            nav ul {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            nav li {
+                margin: 0.5rem 0;
+            }
+            
+            .player-card {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .player-photo {
+                margin-right: 0;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>OLD<br>SEADOGS</h1>
+        </div>
+        <h2>Veteran Football Club</h2>
+        <p>Established 1995</p>
+    </header>
+    
+    <nav>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#team">Team</a></li>
+            <li><a href="#fixtures">Fixtures</a></li>
+            <li><a href="#gallery">Gallery</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+    </nav>
+    
+    <div class="container">
+        <section id="home" class="section">
+            <h2>Welcome to Old Seadogs FC</h2>
+            <img src="https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" alt="Old Seadogs team photo" class="team-photo">
+            <p>The Old Seadogs Football Club is a veteran team founded in 1995 for players who still have the passion for the beautiful game but may have lost a step or two over the years. We compete in local veteran leagues and tournaments, focusing on camaraderie, sportsmanship, and love of the game.</p>
+            <p>Our motto: "Still barking, still biting!"</p>
+            <a href="#about" class="btn">Learn More About Us</a>
+        </section>
+        
+        <section id="about" class="section">
+            <h2>About Old Seadogs</h2>
+            <p>Founded in 1995 by a group of former professional and semi-professional players who weren't ready to hang up their boots, the Old Seadogs have been a fixture in the veteran football community for over 25 years.</p>
+            <p>We welcome players over 35 who still have the passion to compete. While we take our football seriously, we prioritize fun, friendship, and fair play above all else.</p>
+            <p>The team is named after our founder's beloved retired sailing dog, who would still bark excitedly at every ball but could no longer chase it with the same vigor - much like our players!</p>
+        </section>
+        
+        <section id="team" class="section">
+            <h2>Meet the Team</h2>
+            <div class="player-card">
+                <img src="https://randomuser.me/api/portraits/men/60.jpg" alt="Player photo" class="player-photo">
+                <div class="player-info">
+                    <h3>Mike "The Anchor" Johnson</h3>
+                    <p><strong>Position:</strong> Goalkeeper</p>
+                    <p><strong>Age:</strong> 48</p>
+                    <p><strong>Former Clubs:</strong> Marine FC, Coastal United</p>
+                </div>
+            </div>
+            
+            <div class="player-card">
+                <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Player photo" class="player-photo">
+                <div class="player-info">
+                    <h3>Dave "Barnacle" Williams</h3>
+                    <p><strong>Position:</strong> Defender</p>
+                    <p><strong>Age:</strong> 52</p>
+                    <p><strong>Former Clubs:</strong> Harbor FC, Dockyard Dynamos</p>
+                </div>
+            </div>
+            
+            <div class="player-card">
+                <img src="https://randomuser.me/api/portraits/men/22.jpg" alt="Player photo" class="player-photo">
+                <div class="player-info">
+                    <h3>Steve "Salty" Roberts</h3>
+                    <p><strong>Position:</strong> Midfielder</p>
