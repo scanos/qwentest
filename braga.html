@@ -1,149 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Braga Tourist Map</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            height: 500px;
-            width: 100%;
-        }
-        #directionsPanel {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .poi {
-            cursor: pointer;
-            color: blue;
-            text-decoration: underline;
-        }
-    </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2RYFaiLK0eKC3AZlcI45YmcJ7wfEBuiw&libraries=places"></script>
-
-
- 
-
-
-        let map;
-        let directionsService;
-        let directionsRenderer;
-        let userLocation;
-
-        function initMap() {
-            // Initialize the map centered on Braga, Portugal
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 41.5454, lng: -8.4265 },
-                zoom: 14,
-            });
-
-            // Initialize Directions Service and Renderer
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer();
-            directionsRenderer.setMap(map);
-
-            // Get user's current location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        };
-                        map.setCenter(userLocation);
-                        new google.maps.Marker({
-                            position: userLocation,
-                            map: map,
-                            title: "Your Location",
-                        });
-                    },
-                    () => {
-                        handleLocationError(true, map.getCenter());
-                    }
-                );
-            } else {
-                handleLocationError(false, map.getCenter());
-            }
-
-            // Add Points of Interest (POIs)
-            const pois = [
-                { name: "Bom Jesus do Monte", location: { lat: 41.5508, lng: -8.3929 } },
-                { name: "Braga Cathedral", location: { lat: 41.5502, lng: -8.4203 } },
-                { name: "Theatro Circo", location: { lat: 41.5467, lng: -8.4206 } },
-                { name: "Santa Barbara Garden", location: { lat: 41.5521, lng: -8.4188 } },
-            ];
-
-            pois.forEach((poi) => {
-                const marker = new google.maps.Marker({
-                    position: poi.location,
-                    map: map,
-                    title: poi.name,
-                });
-
-                // Add click event to show directions
-                marker.addListener("click", () => {
-                    calculateAndDisplayRoute(poi.location);
-                });
-
-                // Add POI to the list
-                const poiElement = document.createElement("div");
-                poiElement.textContent = poi.name;
-                poiElement.classList.add("poi");
-                poiElement.addEventListener("click", () => {
-                    calculateAndDisplayRoute(poi.location);
-                });
-                document.getElementById("poisList").appendChild(poiElement);
-            });
-        }
-
-        function calculateAndDisplayRoute(destination) {
-            if (!userLocation) {
-                alert("Your location is not available. Please enable geolocation.");
-                return;
-            }
-
-            directionsService.route(
-                {
-                    origin: userLocation,
-                    destination: destination,
-                    travelMode: google.maps.TravelMode.WALKING,
-                },
-                (response, status) => {
-                    if (status === "OK") {
-                        directionsRenderer.setDirections(response);
-                    } else {
-                        alert("Directions request failed due to " + status);
-                    }
-                }
-            );
-        }
-
-        function handleLocationError(browserHasGeolocation, defaultPos) {
-            alert(
-                browserHasGeolocation
-                    ? "Geolocation service failed."
-                    : "Your browser doesn't support geolocation."
-            );
-            userLocation = defaultPos;
-        }
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Braga Walking Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    .info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+    .info h3 {
+      margin: 0 0 10px;
+    }
+    .info ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .info li {
+      margin-bottom: 5px;
+    }
+  </style>
 </head>
-<body onload="initMap()">
-    <h1>Explore Braga, Portugal</h1>
-    <p>Select a place to visit and get walking directions from your location:</p>
-    <div id="poisList"></div>
-    <div id="map"></div>
-    <div id="directionsPanel">
-        <h3>Walking Directions</h3>
-        <p>Click on a point of interest to see walking directions.</p>
-    </div>
+<body>
+  <div id="map"></div>
+  <div class="info">
+    <h3>Places to Visit in Braga</h3>
+    <ul id="places-list"></ul>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([41.5503, -8.4201], 14); // Centered on Braga, Portugal
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Popular places to visit in Braga
+    const places = [
+      { name: "Bom Jesus do Monte", latlng: [41.5526, -8.3967] },
+      { name: "Braga Cathedral", latlng: [41.5493, -8.4257] },
+      { name: "Theatro Circo", latlng: [41.5498, -8.4224] },
+      { name: "Sanctuary of Sameiro", latlng: [41.5576, -8.3981] },
+      { name: "Santa Barbara Garden", latlng: [41.5510, -8.4241] }
+    ];
+
+    // Add markers for each place
+    places.forEach(place => {
+      L.marker(place.latlng).addTo(map)
+        .bindPopup(place.name);
+    });
+
+    // Function to display walking directions
+    async function getWalkingDirections(userLocation, destination) {
+      const apiKey = 'YOUR_OPENROUTESERVICE_API_KEY'; // Replace with your OpenRouteService API key
+      const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${userLocation.lng},${userLocation.lat}&end=${destination.lng},${destination.lat}`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const routeCoordinates = data.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+        L.polyline(routeCoordinates, { color: 'blue' }).addTo(map);
+      } catch (error) {
+        console.error('Error fetching directions:', error);
+      }
+    }
+
+    // Function to update user location and directions
+    function updateUserLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+          const userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+
+          // Clear previous markers and routes
+          map.eachLayer(layer => {
+            if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+              map.removeLayer(layer);
+            }
+          });
+
+          // Add user location marker
+          L.marker([userLocation.lat, userLocation.lng], { icon: L.icon({ iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png' }) })
+            .addTo(map)
+            .bindPopup('Your Location');
+
+          // Re-add place markers
+          places.forEach(place => {
+            L.marker(place.latlng).addTo(map)
+              .bindPopup(place.name);
+          });
+
+          // Calculate walking directions to all places
+          places.forEach(place => {
+            const destination = { lat: place.latlng[0], lng: place.latlng[1] };
+            getWalkingDirections(userLocation, destination);
+          });
+        }, error => {
+          console.error('Geolocation error:', error.message);
+        });
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    }
+
+    // Display places in the info box
+    const placesList = document.getElementById('places-list');
+    places.forEach(place => {
+      const listItem = document.createElement('li');
+      listItem.textContent = place.name;
+      placesList.appendChild(listItem);
+    });
+
+    // Initial update and periodic refresh
+    updateUserLocation();
+    setInterval(updateUserLocation, 120000); // Refresh every 2 minutes
+  </script>
 </body>
 </html>
