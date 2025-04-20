@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version 8 - Top 10 Pubs in Liverpool</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Top 10 Pubs in Liverpool</h1>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([53.4084, -2.9916], 14); // Centered on Liverpool
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // List of top 10 pubs in Liverpool with their coordinates
+        const pubs = [
+            { name: "The Philharmonic", lat: 53.4079, lng: -2.9757 },
+            { name: "The Cavern Club", lat: 53.4044, lng: -2.9849 },
+            { name: "Ye Cracke", lat: 53.4031, lng: -2.9778 },
+            { name: "The Shipping Forecast", lat: 53.4067, lng: -2.9801 },
+            { name: "The Baltic Fleet", lat: 53.4005, lng: -2.9807 },
+            { name: "The Casa", lat: 53.4076, lng: -2.9774 },
+            { name: "The Lion Tavern", lat: 53.4022, lng: -2.9901 },
+            { name: "The Ship & Mitre", lat: 53.4058, lng: -2.9829 },
+            { name: "The Grapes", lat: 53.4002, lng: -2.9855 },
+            { name: "The Crown Liquor Saloon", lat: 53.4012, lng: -2.9821 }
+        ];
+
+        let currentStep = 0; // Track the current step
+        let polyline = null; // To store the polyline object
+        let markers = []; // Store all markers
+
+        // Function to calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Distance in km
+        }
+
+        // Function to add markers and handle clicks
+        function initializeMarkers() {
+            pubs.forEach((pub, index) => {
+                const marker = L.marker([pub.lat, pub.lng], {
+                    icon: L.divIcon({
+                        className: 'custom-icon',
+                        html: `<div>${index === 0 ? '<span style="background-color: yellow; border-radius: 50%; padding: 10px;">📍</span>' : ''}</div>`,
+                        iconSize: [20, 20]
+                    })
+                }).addTo(map);
+
+                marker.bindPopup(pub.name);
+
+                if (index === 0) {
+                    marker.setIcon(L.divIcon({
+                        className: 'custom-icon',
+                        html: '<span style="background-color: yellow; border-radius: 50%; padding: 10px;">📍</span>',
+                        iconSize: [30, 30]
+                    }));
+                }
+
+                markers.push(marker);
+            });
+        }
+
+        // Function to move to the next location
+        function moveToNextLocation() {
+            if (currentStep >= pubs.length - 1) {
+                alert("You've visited all the pubs!");
+                return;
+            }
+
+            const currentPub = pubs[currentStep];
+            const nextPub = pubs[currentStep + 1];
+
+            // Remove the yellow marker from the current location
+            markers[currentStep].setIcon(L.divIcon({
+                className: 'custom-icon',
+                html: '',
+                iconSize: [20, 20]
+            }));
+
+            // Add a yellow marker to the next location
+            markers[currentStep + 1].setIcon(L.divIcon({
+                className: 'custom-icon',
+                html: '<span style="background-color: yellow; border-radius: 50%; padding: 10px;">📍</span>',
+                iconSize: [30, 30]
+            }));
+
+            // Draw a line from the current location to the next location
+            if (polyline) {
+                map.removeLayer(polyline);
+            }
+            polyline = L.polyline([
+                [currentPub.lat, currentPub.lng],
+                [nextPub.lat, nextPub.lng]
+            ], { color: 'blue' }).addTo(map);
+
+            // Center the map on the next location
+            map.setView([nextPub.lat, nextPub.lng], 14);
+
+            // Increment the step counter
+            currentStep++;
+        }
+
+        // Initialize the map and markers
+        initializeMarkers();
+
+        // Attach click event to the first marker
+        markers[0].on('click', () => {
+            moveToNextLocation();
+        });
+
+        // Attach click events to other markers dynamically
+        markers.forEach((marker, index) => {
+            marker.on('click', () => {
+                if (index === currentStep) {
+                    moveToNextLocation();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
