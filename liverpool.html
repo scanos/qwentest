@@ -15,43 +15,50 @@
             width: 100%;
             height: 100vh;
         }
-        h1 {
-            text-align: center;
-            margin: 20px 0;
+        .info-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <h1>Top 10 Pubs in Liverpool</h1>
     <div id="map"></div>
+    <div class="info-box" id="info-box">Click on the yellow marker to visit the next pub!</div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         // Initialize the map
-        const map = L.map('map').setView([53.4084, -2.9916], 14); // Centered on Liverpool
+        const map = L.map('map').setView([53.4076, -2.9711], 15); // Centered on The Philharmonic
 
-        // Add OpenStreetMap tiles
+        // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
         // List of top 10 pubs in Liverpool with their coordinates
         const pubs = [
-            { name: "The Philharmonic", lat: 53.4079, lng: -2.9757 },
-            { name: "The Cavern Club", lat: 53.4044, lng: -2.9849 },
-            { name: "Ye Cracke", lat: 53.4031, lng: -2.9778 },
-            { name: "The Shipping Forecast", lat: 53.4067, lng: -2.9801 },
-            { name: "The Baltic Fleet", lat: 53.4005, lng: -2.9807 },
-            { name: "The Casa", lat: 53.4076, lng: -2.9774 },
-            { name: "The Lion Tavern", lat: 53.4022, lng: -2.9901 },
-            { name: "The Ship & Mitre", lat: 53.4058, lng: -2.9829 },
-            { name: "The Grapes", lat: 53.4002, lng: -2.9855 },
-            { name: "The Crown Liquor Saloon", lat: 53.4012, lng: -2.9821 }
+            { name: "The Philharmonic", coords: [53.4076, -2.9711] },
+            { name: "The Cavern Club", coords: [53.4052, -2.9821] },
+            { name: "Ye Hole in Ye Wall", coords: [53.4039, -2.9817] },
+            { name: "The Shipping Forecast", coords: [53.4062, -2.9813] },
+            { name: "The Baltic Fleet", coords: [53.4025, -2.9718] },
+            { name: "The Pump House", coords: [53.4045, -2.9792] },
+            { name: "The Clove Hitch", coords: [53.4031, -2.9785] },
+            { name: "The Grapes", coords: [53.4068, -2.9825] },
+            { name: "The Crown", coords: [53.4056, -2.9778] },
+            { name: "The Vines", coords: [53.4047, -2.9802] }
         ];
 
-        let currentStep = 0; // Track the current step
-        let polyline = null; // To store the polyline object
-        let markers = []; // Store all markers
+        let currentMarker = null; // Currently active yellow marker
+        let polyline = null; // Line connecting the pubs
+        let visitedPubs = []; // Track visited pubs
 
         // Function to calculate distance between two points (Haversine formula)
         function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -66,87 +73,84 @@
             return R * c; // Distance in km
         }
 
-        // Function to add markers and handle clicks
-        function initializeMarkers() {
-            pubs.forEach((pub, index) => {
-                const marker = L.marker([pub.lat, pub.lng], {
-                    icon: L.divIcon({
-                        className: 'custom-icon',
-                        html: `<div>${index === 0 ? '<span style="background-color: yellow; border-radius: 50%; padding: 10px;">📍</span>' : ''}</div>`,
-                        iconSize: [20, 20]
-                    })
-                }).addTo(map);
+        // Function to find the nearest unvisited pub
+        function findNearestPub(currentCoords) {
+            let nearestPub = null;
+            let minDistance = Infinity;
 
-                marker.bindPopup(pub.name);
-
-                if (index === 0) {
-                    marker.setIcon(L.divIcon({
-                        className: 'custom-icon',
-                        html: '<span style="background-color: yellow; border-radius: 50%; padding: 10px;">📍</span>',
-                        iconSize: [30, 30]
-                    }));
+            pubs.forEach(pub => {
+                if (!visitedPubs.includes(pub.name)) {
+                    const distance = calculateDistance(
+                        currentCoords[0], currentCoords[1],
+                        pub.coords[0], pub.coords[1]
+                    );
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestPub = pub;
+                    }
                 }
-
-                markers.push(marker);
             });
+
+            return nearestPub;
         }
 
-        // Function to move to the next location
-        function moveToNextLocation() {
-            if (currentStep >= pubs.length - 1) {
-                alert("You've visited all the pubs!");
+        // Function to update the map with the next pub
+        function visitNextPub() {
+            if (visitedPubs.length === pubs.length) {
+                document.getElementById('info-box').innerText = "You've visited all the pubs!";
                 return;
             }
 
-            const currentPub = pubs[currentStep];
-            const nextPub = pubs[currentStep + 1];
+            // Find the nearest unvisited pub
+            const currentCoords = currentMarker ? currentMarker.getLatLng() : pubs[0].coords;
+            const nextPub = findNearestPub(currentCoords);
 
-            // Remove the yellow marker from the current location
-            markers[currentStep].setIcon(L.divIcon({
-                className: 'custom-icon',
-                html: '',
-                iconSize: [20, 20]
-            }));
+            if (!nextPub) return;
 
-            // Add a yellow marker to the next location
-            markers[currentStep + 1].setIcon(L.divIcon({
-                className: 'custom-icon',
-                html: '<span style="background-color: yellow; border-radius: 50%; padding: 10px;">📍</span>',
-                iconSize: [30, 30]
-            }));
-
-            // Draw a line from the current location to the next location
-            if (polyline) {
-                map.removeLayer(polyline);
+            // Remove the current marker
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
             }
-            polyline = L.polyline([
-                [currentPub.lat, currentPub.lng],
-                [nextPub.lat, nextPub.lng]
-            ], { color: 'blue' }).addTo(map);
 
-            // Center the map on the next location
-            map.setView([nextPub.lat, nextPub.lng], 14);
+            // Add a new yellow marker for the next pub
+            currentMarker = L.marker(nextPub.coords, { icon: yellowIcon }).addTo(map);
+            currentMarker.on('click', visitNextPub);
 
-            // Increment the step counter
-            currentStep++;
+            // Update visited pubs list
+            visitedPubs.push(nextPub.name);
+
+            // Draw or update the polyline
+            if (!polyline) {
+                polyline = L.polyline([currentCoords, nextPub.coords], { color: 'blue' }).addTo(map);
+            } else {
+                const currentPoints = polyline.getLatLngs();
+                currentPoints.push(nextPub.coords);
+                polyline.setLatLngs(currentPoints);
+            }
+
+            // Center the map on the new pub
+            map.setView(nextPub.coords, 15);
+
+            // Update the info box
+            document.getElementById('info-box').innerText = `Visited ${nextPub.name}. Click to visit the next pub!`;
         }
 
-        // Initialize the map and markers
-        initializeMarkers();
-
-        // Attach click event to the first marker
-        markers[0].on('click', () => {
-            moveToNextLocation();
+        // Define a yellow marker icon
+        const yellowIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
         });
 
-        // Attach click events to other markers dynamically
-        markers.forEach((marker, index) => {
-            marker.on('click', () => {
-                if (index === currentStep) {
-                    moveToNextLocation();
-                }
-            });
-        });
+        // Start with The Philharmonic as the first marker
+        currentMarker = L.marker(pubs[0].coords, { icon: yellowIcon }).addTo(map);
+        currentMarker.on('click', visitNextPub);
+
+        // Initial info box message
+        document.getElementById('info-box').innerText = "Start at The Philharmonic. Click to visit the next pub!";
     </script>
 </body>
 </html>
