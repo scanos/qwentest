@@ -63,11 +63,11 @@
       // Add click event to marker
       marker.on('click', async () => {
         try {
-          // Get user's current location
-          const userLocation = await getUserLocation();
+          // Get user's current location or fallback to default
+          const userLocation = await getUserLocationOrFallback();
+          const destination = [place.lat, place.lng];
 
           // Calculate walking directions
-          const destination = [place.lat, place.lng];
           const route = await getWalkingDirections(userLocation, destination);
 
           // Display route on the map
@@ -85,23 +85,30 @@
       });
     });
 
-    // Function to get user's current location
-    function getUserLocation() {
+    // Function to get user's current location or fallback to default
+    function getUserLocationOrFallback() {
       return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
           reject(new Error("Geolocation is not supported by your browser."));
         }
+
         navigator.geolocation.getCurrentPosition(
           position => resolve([position.coords.latitude, position.coords.longitude]),
-          error => reject(error)
+          error => {
+            if (error.code === error.PERMISSION_DENIED) {
+              alert("You denied the geolocation request. Using a default location in Braga.");
+              resolve([41.5503, -8.4201]); // Default location: Braga city center
+            } else {
+              reject(error);
+            }
+          }
         );
       });
     }
 
     // Function to get walking directions using OpenRouteService API
     async function getWalkingDirections(start, end) {
-      const apiKey ="5b3ce3597851110001cf62487ddb3015f9954697b251afa2361c2b30";
-// Replace with your OpenRouteService API key
+      const apiKey = "5b3ce3597851110001cf62487ddb3015f9954697b251afa2361c2b30"; // Replace with your OpenRouteService API key
       const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`;
       
       const response = await fetch(url);
