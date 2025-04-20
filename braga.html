@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Version 6 - Top 10 Places to Visit in Braga</title>
+    <title>Version 8 - Top 10 Places to Visit in Braga</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body {
@@ -11,47 +11,27 @@
             margin: 0;
             padding: 0;
         }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            text-align: center;
-            padding: 1rem;
-        }
         #map {
-            height: 80vh;
+            height: 100vh;
             width: 100%;
         }
-        footer {
-            background-color: #333;
-            color: white;
-            text-align: center;
-            padding: 0.5rem;
-            position: fixed;
-            bottom: 0;
-            width: 100%;
+        .flashing-marker {
+            animation: flash 1s infinite;
         }
-        @media (max-width: 600px) {
-            header h1 {
-                font-size: 1.5rem;
-            }
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Top 10 Places to Visit in Braga, Portugal</h1>
-    </header>
-
+    <h1 style="text-align: center;">Top 10 Places to Visit in Braga</h1>
     <div id="map"></div>
-
-    <footer>
-        &copy; 2023 Your Travel Guide
-    </footer>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         // Initialize the map
-        const map = L.map('map').setView([41.5499, -8.4201], 14); // Centered on Braga Cathedral
+        const map = L.map('map').setView([41.5503, -8.4201], 14); // Braga Cathedral coordinates
 
         // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -59,29 +39,78 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Define the top 10 places to visit in Braga, ordered by proximity to Braga Cathedral
+        // Define the top 10 places to visit in Braga
         const places = [
-            { name: "Braga Cathedral", coords: [41.5499, -8.4201] },
-            { name: "Bom Jesus do Monte", coords: [41.5567, -8.3819] },
-            { name: "Sanctuary of Our Lady of Sameiro", coords: [41.5606, -8.3765] },
-            { name: "Theatro Circo", coords: [41.5518, -8.4209] },
-            { name: "Santa Barbara Garden", coords: [41.5521, -8.4224] },
-            { name: "Arch of the New Gate", coords: [41.5489, -8.4218] },
-            { name: "Palace of the Bishops", coords: [41.5501, -8.4203] },
-            { name: "Municipal Stadium of Braga", coords: [41.5642, -8.4108] },
-            { name: "Santa Cruz Church", coords: [41.5503, -8.4212] },
-            { name: "Rua do Souto", coords: [41.5507, -8.4215] }
+            { name: "Braga Cathedral", coords: [41.5503, -8.4201] },
+            { name: "Bom Jesus do Monte", coords: [41.5627, -8.3694] },
+            { name: "Sanctuary of Our Lady of Sameiro", coords: [41.5686, -8.3778] },
+            { name: "The Garden of Santa Bárbara", coords: [41.5507, -8.4196] },
+            { name: "Arch of the New Gate", coords: [41.5487, -8.4204] },
+            { name: "Palace of the Dukes of Braganza", coords: [41.5503, -8.4221] },
+            { name: "Museum of Image", coords: [41.5505, -8.4213] },
+            { name: "Santa Cruz Church", coords: [41.5510, -8.4217] },
+            { name: "Rúa do Souto", coords: [41.5506, -8.4212] },
+            { name: "Espaço Vita", coords: [41.5509, -8.4218] }
         ];
 
+        // Function to calculate distance between two coordinates (Haversine formula)
+        function getDistance(coord1, coord2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = (coord1[0] * Math.PI) / 180;
+            const φ2 = (coord2[0] * Math.PI) / 180;
+            const Δφ = ((coord2[0] - coord1[0]) * Math.PI) / 180;
+            const Δλ = ((coord2[1] - coord1[1]) * Math.PI) / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Distance in meters
+        }
+
+        // Sort places by distance from Braga Cathedral
+        const sortedPlaces = [...places].sort((a, b) => 
+            getDistance(places[0].coords, a.coords) - getDistance(places[0].coords, b.coords)
+        );
+
         // Add markers for each place
-        places.forEach((place, index) => {
+        const markers = [];
+        sortedPlaces.forEach((place, index) => {
             const marker = L.marker(place.coords).addTo(map);
-            marker.bindPopup(`<b>${index + 1}. ${place.name}</b>`).openPopup();
+            marker.bindPopup(`${index + 1}. ${place.name}`);
+            markers.push(marker);
         });
 
-        // Fit the map to include all markers
-        const bounds = places.map(place => place.coords);
-        map.fitBounds(bounds);
+        // Track the current location index
+        let currentIndex = 0;
+
+        // Highlight the next location with a flashing marker
+        function highlightNextLocation() {
+            if (currentIndex >= sortedPlaces.length - 1) {
+                alert("You've visited all the locations!");
+                return;
+            }
+
+            // Remove flashing class from previous marker
+            if (currentIndex > 0) {
+                markers[currentIndex].setIcon(L.icon({ iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png' }));
+            }
+
+            // Move to the next location
+            currentIndex++;
+
+            // Flash the next marker
+            const nextMarker = markers[currentIndex];
+            nextMarker.setIcon(L.icon({
+                iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png',
+                className: 'flashing-marker'
+            }));
+            map.setView(sortedPlaces[currentIndex].coords, 14);
+            nextMarker.openPopup();
+        }
+
+        // Attach click event to the first marker
+        markers[0].on('click', highlightNextLocation);
     </script>
 </body>
 </html>
