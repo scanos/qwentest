@@ -100,7 +100,7 @@
 
     // Function to get walking directions using OpenRouteService API
     async function getWalkingDirections(start, end) {
-      const apiKey = "YOUR_OPENROUTESERVICE_API_KEY"; // Replace with your OpenRouteService API key
+      const apiKey = 5b3ce3597851110001cf62487ddb3015f9954697b251afa2361c2b30 // Replace with your OpenRouteService API key
       const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`;
       
       const response = await fetch(url);
