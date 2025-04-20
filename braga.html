@@ -1,162 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Version 8 - Top 10 Places to Visit in Braga</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
-    #map {
-      width: 100%;
-      height: 100vh;
-    }
-    .info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: white;
-      padding: 10px;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-      z-index: 1000;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Version 8: Top Ten Places in Braga</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #map { height: 100%; width: 100%; }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        .leaflet-marker-icon.yellow-marker { width: 40px !important; height: 40px !important; margin-left: -20px !important; margin-top: -40px !important; }
+    </style>
 </head>
-<body>
-  <div id="map"></div>
-  <div class="info">
-    <h3>Top 10 Places to Visit in Braga</h3>
-    <p>Click on the yellow marker to move to the next location.</p>
-  </div>
+<body class="flex flex-col h-screen">
+    <header class="bg-blue-600 text-white p-4">
+        <h1 class="text-2xl font-bold">Top Ten Places to Visit in Braga, Portugal</h1>
+    </header>
+    <main class="flex-grow">
+        <div id="map"></div>
+    </main>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([41.5503, -8.4277], 14);
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Initialize the map
-    const map = L.map('map').setView([41.5476, -8.425], 13);
-
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    // Define the top 10 places to visit in Braga
-    const places = [
-      { name: "Braga Cathedral", lat: 41.5476, lng: -8.425 },
-      { name: "Bom Jesus do Monte", lat: 41.5475, lng: -8.3905 },
-      { name: "Santuário do Sameiro", lat: 41.5611, lng: -8.4031 },
-      { name: "Theatro Circo", lat: 41.5501, lng: -8.4226 },
-      { name: "Santa Bárbara Garden", lat: 41.5512, lng: -8.4236 },
-      { name: "Arco da Porta Nova", lat: 41.5507, lng: -8.4266 },
-      { name: "Palácio do Raio", lat: 41.5514, lng: -8.4278 },
-      { name: "Museu D. Diogo de Sousa", lat: 41.5488, lng: -8.4257 },
-      { name: "Jardim de Santa Lucrécia", lat: 41.5523, lng: -8.4229 },
-      { name: "Igreja de São Victor", lat: 41.5541, lng: -8.4283 }
-    ];
-
-    let markers = [];
-    let lines = [];
-    let currentIndex = 0;
-
-    // Function to calculate distance between two points
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Radius of the Earth in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in km
-    }
-
-    // Function to create markers for all places
-    function createMarkers() {
-      places.forEach((place, index) => {
-        const marker = L.marker([place.lat, place.lng], {
-          icon: index === currentIndex ? yellowIcon : blueIcon
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
-        marker.bindPopup(`<b>${place.name}</b>`).openPopup();
-        markers.push(marker);
-      });
-    }
 
-    // Function to find the next nearest location
-    function findNextLocation() {
-      if (currentIndex >= places.length - 1) return null;
-      const currentPlace = places[currentIndex];
-      let minDistance = Infinity;
-      let nextIndex = -1;
-      for (let i = 0; i < places.length; i++) {
-        if (i !== currentIndex && !markers[i].options.icon.equals(yellowIcon)) {
-          const distance = calculateDistance(
-            currentPlace.lat, currentPlace.lng,
-            places[i].lat, places[i].lng
-          );
-          if (distance < minDistance) {
-            minDistance = distance;
-            nextIndex = i;
-          }
-        }
-      }
-      return nextIndex;
-    }
+        // Define locations
+        const locations = [
+            { name: "Sé de Braga (Cathedral)", lat: 41.5503, lng: -8.4277, visited: false, marker: null },
+            { name: "Bom Jesus do Monte", lat: 41.5547, lng: -8.3780, visited: false, marker: null },
+            { name: "Jardim de Santa Bárbara", lat: 41.5514, lng: -8.4240, visited: false, marker: null },
+            { name: "Palácio dos Biscainhos", lat: 41.5488, lng: -8.4298, visited: false, marker: null },
+            { name: "Igreja de Santa Cruz", lat: 41.5495, lng: -8.4265, visited: false, marker: null },
+            { name: "Palácio do Raio", lat: 41.5471, lng: -8.4220, visited: false, marker: null },
+            { name: "Theatro Circo", lat: 41.5510, lng: -8.4228, visited: false, marker: null },
+            { name: "Arco da Porta Nova", lat: 41.5498, lng: -8.4312, visited: false, marker: null },
+            { name: "Convento dos Congregados", lat: 41.5505, lng: -8.4205, visited: false, marker: null },
+            { name: "Largo do Paço", lat: 41.5518, lng: -8.4260, visited: false, marker: null }
+        ];
 
-    // Function to update the map when a marker is clicked
-    function updateMap() {
-      if (currentIndex >= places.length - 1) return;
-
-      const nextIndex = findNextLocation();
-      if (nextIndex === -1) return;
-
-      // Draw a line from the current location to the next location
-      const currentPlace = places[currentIndex];
-      const nextPlace = places[nextIndex];
-      const line = L.polyline([
-        [currentPlace.lat, currentPlace.lng],
-        [nextPlace.lat, nextPlace.lng]
-      ], { color: 'blue' }).addTo(map);
-      lines.push(line);
-
-      // Update marker icons
-      markers[currentIndex].setIcon(blueIcon);
-      markers[nextIndex].setIcon(yellowIcon);
-
-      // Center the map on the next location
-      map.setView([nextPlace.lat, nextPlace.lng], 13);
-
-      // Update the current index
-      currentIndex = nextIndex;
-    }
-
-    // Define custom icons
-    const yellowIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-
-    const blueIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-
-    // Create markers and add click event listeners
-    createMarkers();
-    markers[currentIndex].on('click', updateMap);
-  </script>
-</body>
-</html>
+        // Custom icons
+        const defaultIcon = L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1
