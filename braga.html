@@ -113,13 +113,29 @@
       
       const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch directions.");
+
       const data = await response.json();
+
+      // Debugging: Log the API response
+      console.log("API Response:", data);
+
+      // Validate the response structure
+      if (!data.features || !data.features[0] || !data.features[0].geometry) {
+        throw new Error("Invalid route data received from the API.");
+      }
+
       return data.features[0].properties.summary;
     }
 
     // Function to display the route on the map
     function displayRoute(route) {
       if (map.routeLayer) map.removeLayer(map.routeLayer);
+
+      // Validate the geometry
+      if (!route.geometry || !route.geometry.coordinates) {
+        throw new Error("Route geometry is undefined.");
+      }
+
       const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
       map.routeLayer = L.polyline(coordinates, { color: 'blue' }).addTo(map);
       map.fitBounds(map.routeLayer.getBounds());
