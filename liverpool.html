@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Version 8</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <title>Top 10 Pubs in Liverpool</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
       margin: 0;
       padding: 0;
+      font-family: Arial, sans-serif;
     }
     #map {
       width: 100%;
@@ -19,74 +20,76 @@
 </head>
 <body>
   <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // Initialize the map
-    const map = L.map('map').setView([53.4065, -2.9731], 15); // Centered on The Philharmonic
+    const map = L.map('map').setView([53.4062, -2.9715], 15); // Centered on The Philharmonic
 
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Top 10 pubs in Liverpool with their coordinates
+    // Define the top 10 pubs in Liverpool with their coordinates
     const pubs = [
-      { name: "The Philharmonic", lat: 53.4065, lng: -2.9731 },
-      { name: "The Cavern Club", lat: 53.4045, lng: -2.9811 },
-      { name: "Ye Cracke", lat: 53.4031, lng: -2.9755 },
-      { name: "The Shipping Forecast", lat: 53.4075, lng: -2.9822 },
-      { name: "The Baltic Fleet", lat: 53.4008, lng: -2.9771 },
-      { name: "The Crown", lat: 53.4055, lng: -2.9778 },
-      { name: "The Grapes", lat: 53.4039, lng: -2.9801 },
-      { name: "The White Star", lat: 53.4069, lng: -2.9765 },
-      { name: "The Albert Dock Tavern", lat: 53.4026, lng: -2.9821 },
-      { name: "The Vines", lat: 53.4072, lng: -2.9785 }
+      { name: "The Philharmonic", lat: 53.4062, lng: -2.9715 },
+      { name: "Ye Hole in The Wall", lat: 53.4051, lng: -2.9694 },
+      { name: "The Shipping Forecast", lat: 53.4068, lng: -2.9781 },
+      { name: "The Cavern Club", lat: 53.4055, lng: -2.9803 },
+      { name: "The Baltic Fleet", lat: 53.4032, lng: -2.9784 },
+      { name: "The Crown", lat: 53.4073, lng: -2.9756 },
+      { name: "The Pump House", lat: 53.4082, lng: -2.9745 },
+      { name: "The Pen Factory", lat: 53.4044, lng: -2.9798 },
+      { name: "The White Star", lat: 53.4059, lng: -2.9772 },
+      { name: "The Magnet", lat: 53.4050, lng: -2.9769 }
     ];
 
-    let currentStep = 0; // Tracks the current step
-    let polyline = null; // Stores the polyline object
+    let currentIndex = 0; // Start at The Philharmonic
+    let polyline = null; // To store the line connecting markers
+    const markers = []; // To store all markers
 
-    // Function to create markers and labels
-    function createMarker(pub) {
-      return L.marker([pub.lat, pub.lng]).bindPopup(pub.name);
+    // Function to add a marker for a pub
+    function addMarker(pub, index) {
+      const marker = L.marker([pub.lat, pub.lng])
+        .addTo(map)
+        .bindPopup(pub.name)
+        .on('click', () => visitNextLocation(index));
+      markers.push(marker);
     }
 
-    // Initial marker and label
-    let currentMarker = createMarker(pubs[currentStep]);
-    currentMarker.addTo(map).openPopup();
-
-    // Function to handle marker clicks
-    function handleMarkerClick() {
-      if (currentStep < pubs.length - 1) {
-        currentStep++; // Move to the next pub
-        const nextPub = pubs[currentStep];
-
-        // Remove the previous marker
-        map.removeLayer(currentMarker);
-
-        // Create a new marker for the next pub
-        currentMarker = createMarker(nextPub);
-        currentMarker.addTo(map).openPopup();
-
-        // Draw a line from the previous location to the new location
-        if (polyline) {
-          map.removeLayer(polyline); // Remove the old polyline
-        }
-        const previousPub = pubs[currentStep - 1];
-        const points = [
-          [previousPub.lat, previousPub.lng],
-          [nextPub.lat, nextPub.lng]
-        ];
-        polyline = L.polyline(points, { color: 'blue' }).addTo(map);
-
-        // Center the map on the new location
-        map.setView([nextPub.lat, nextPub.lng], 15);
-      } else {
+    // Function to visit the next location
+    function visitNextLocation(currentIndex) {
+      if (currentIndex + 1 >= pubs.length) {
         alert("You've visited all the pubs!");
+        return;
       }
+
+      const currentPub = pubs[currentIndex];
+      const nextPub = pubs[currentIndex + 1];
+
+      // Draw a line from the current location to the next location
+      if (polyline) {
+        map.removeLayer(polyline); // Remove the previous line
+      }
+      polyline = L.polyline(
+        [[currentPub.lat, currentPub.lng], [nextPub.lat, nextPub.lng]],
+        { color: 'blue' }
+      ).addTo(map);
+
+      // Center the map on the next location
+      map.setView([nextPub.lat, nextPub.lng], 15);
+
+      // Update the current index
+      currentIndex++;
     }
 
-    // Attach click event to the marker
-    currentMarker.on('click', handleMarkerClick);
+    // Add markers for all pubs
+    pubs.forEach((pub, index) => addMarker(pub, index));
+
+    // Initially center the map on The Philharmonic
+    map.setView([pubs[0].lat, pubs[0].lng], 15);
   </script>
 </body>
 </html>
