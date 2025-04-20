@@ -1,285 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Top 10 Places to Visit in Braga, Portugal</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        #header {
-            background-color: #2c3e50;
-            color: white;
-            text-align: center;
-            padding: 1rem;
-        }
-        #container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        #map {
-            flex: 1;
-            width: 100%;
-        }
-        #directions {
-            padding: 1rem;
-            background-color: #f8f9fa;
-            border-top: 1px solid #ddd;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        @media (min-width: 768px) {
-            #container {
-                flex-direction: row;
-            }
-            #map {
-                flex: 3;
-            }
-            #directions {
-                flex: 1;
-                max-height: none;
-                border-top: none;
-                border-left: 1px solid #ddd;
-            }
-        }
-        .place-info {
-            margin-bottom: 1rem;
-        }
-        .place-info h3 {
-            margin-top: 0;
-            color: #2c3e50;
-        }
-        .directions-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        button {
-            background-color: #2c3e50;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #1a252f;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Top 10 Places to Visit in Braga</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    .info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    }
+  </style>
 </head>
 <body>
-    <div id="header">
-        <h1>Top 10 Places to Visit in Braga, Portugal</h1>
-    </div>
-    <div id="container">
-        <div id="map"></div>
-        <div id="directions">
-            <div class="directions-header">
-                <h2>Directions</h2>
-                <button id="clear-directions">Clear</button>
-            </div>
-            <div id="directions-panel"></div>
-        </div>
-    </div>
+  <div class="info">
+    <h3>Top 10 Places to Visit in Braga</h3>
+    <p>Click on a marker to get walking directions from your current location.</p>
+  </div>
+  <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <script>
-        // Initialize the map
-        const map = L.map('map').setView([41.5503, -8.4201], 13);
+  <!-- Leaflet.js -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([41.5496, -8.4265], 13); // Braga coordinates
 
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-        // Top 10 places in Braga with coordinates
-        const places = [
-            {
-                name: "Bom Jesus do Monte",
-                lat: 41.5547,
-                lng: -8.3775,
-                description: "A famous sanctuary with a stunning baroque stairway and panoramic views."
+    // Top 10 places to visit in Braga
+    const places = [
+      { name: "Bom Jesus do Monte", coords: [41.5507, -8.3908] },
+      { name: "Braga Cathedral", coords: [41.5501, -8.4267] },
+      { name: "Sanctuary of Our Lady of Sameiro", coords: [41.5636, -8.3836] },
+      { name: "The Garden of Santa Bárbara", coords: [41.5489, -8.4237] },
+      { name: "Ribeira Square", coords: [41.5487, -8.4246] },
+      { name: "Arch of the New Gate", coords: [41.5493, -8.4262] },
+      { name: "Museum of Image", coords: [41.5498, -8.4271] },
+      { name: "Palace of the Dukes of Braganza", coords: [41.5482, -8.4272] },
+      { name: "Santa Cruz Church", coords: [41.5492, -8.4261] },
+      { name: "Municipal Stadium of Braga", coords: [41.5547, -8.4097] }
+    ];
+
+    // Add markers for each place
+    places.forEach(place => {
+      const marker = L.marker(place.coords).addTo(map);
+      marker.bindPopup(place.name);
+
+      // Add click event to get walking directions
+      marker.on('click', () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const userCoords = [position.coords.latitude, position.coords.longitude];
+              const destinationCoords = place.coords;
+
+              // Fetch walking directions using OpenRouteService API
+              const apiKey = 'YOUR_OPENROUTESERVICE_API_KEY'; // Replace with your API key
+              const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${userCoords[1]},${userCoords[0]}&end=${destinationCoords[1]},${destinationCoords[0]}`;
+
+              try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const route = data.features[0].geometry.coordinates;
+
+                // Convert route to Leaflet format
+                const latLngs = route.map(coord => [coord[1], coord[0]]);
+
+                // Add route to the map
+                if (map.routeLayer) map.removeLayer(map.routeLayer);
+                map.routeLayer = L.polyline(latLngs, { color: 'blue' }).addTo(map);
+
+                // Zoom to fit the route
+                map.fitBounds(L.latLngBounds(latLngs));
+              } catch (error) {
+                alert('Error fetching directions. Please try again.');
+                console.error(error);
+              }
             },
-            {
-                name: "Braga Cathedral",
-                lat: 41.5501,
-                lng: -8.4269,
-                description: "The oldest cathedral in Portugal, dating back to the 11th century."
-            },
-            {
-                name: "Sameiro Sanctuary",
-                lat: 41.5636,
-                lng: -8.3714,
-                description: "One of the most important Marian shrines in Portugal."
-            },
-            {
-                name: "Tibães Monastery",
-                lat: 41.5639,
-                lng: -8.4778,
-                description: "A Benedictine monastery that was the mother house for the order in Portugal and Brazil."
-            },
-            {
-                name: "Santa Barbara Garden",
-                lat: 41.5514,
-                lng: -8.4228,
-                description: "Beautiful gardens next to the Archbishop's Palace."
-            },
-            {
-                name: "Arco da Porta Nova",
-                lat: 41.5512,
-                lng: -8.4242,
-                description: "An 18th-century arch that was one of the main entrances to the city."
-            },
-            {
-                name: "Raio Palace",
-                lat: 41.5506,
-                lng: -8.4206,
-                description: "A stunning Baroque and Rococo palace with an impressive blue-tiled facade."
-            },
-            {
-                name: "Museu dos Biscainhos",
-                lat: 41.5497,
-                lng: -8.4281,
-                description: "A museum housed in an 18th-century aristocratic residence with beautiful gardens."
-            },
-            {
-                name: "Pópulo Church",
-                lat: 41.5486,
-                lng: -8.4214,
-                description: "A Renaissance church with a beautiful facade and interior."
-            },
-            {
-                name: "Praça da República",
-                lat: 41.5496,
-                lng: -8.4228,
-                description: "The main square in Braga, surrounded by cafes and historic buildings."
+            () => {
+              alert('Geolocation failed. Please enable location services.');
             }
-        ];
-
-        // Add markers for each place
-        const markers = [];
-        places.forEach(place => {
-            const marker = L.marker([place.lat, place.lng])
-                .addTo(map)
-                .bindPopup(`<b>${place.name}</b><br>${place.description}`)
-                .on('click', function() {
-                    showDirections(place.lat, place.lng, place.name);
-                });
-            markers.push(marker);
-        });
-
-        // Routing control
-        let routingControl = null;
-
-        // Function to show directions
-        function showDirections(destLat, destLng, placeName) {
-            // Clear previous directions
-            if (routingControl) {
-                map.removeControl(routingControl);
-            }
-            
-            document.getElementById('directions-panel').innerHTML = `<p>Getting walking directions to ${placeName}...</p>`;
-            
-            // Get current position
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    const startLat = position.coords.latitude;
-                    const startLng = position.coords.longitude;
-                    
-                    // Create routing control
-                    routingControl = L.Routing.control({
-                        waypoints: [
-                            L.latLng(startLat, startLng),
-                            L.latLng(destLat, destLng)
-                        ],
-                        routeWhileDragging: false,
-                        showAlternatives: false,
-                        addWaypoints: false,
-                        draggableWaypoints: false,
-                        fitSelectedRoutes: true,
-                        show: false, // We'll show our own instructions
-                        lineOptions: {
-                            styles: [{color: '#2c3e50', opacity: 0.7, weight: 5}]
-                        },
-                        createMarker: function() { return null; } // Don't show markers
-                    }).addTo(map);
-                    
-                    // Listen for route changes
-                    routingControl.on('routesfound', function(e) {
-                        const routes = e.routes;
-                        const instructions = routes[0].instructions;
-                        
-                        let html = `<h3>Walking to ${placeName}</h3>`;
-                        html += `<p>Distance: ${routes[0].summary.totalDistance} meters<br>`;
-                        html += `Estimated time: ${Math.round(routes[0].summary.totalTime / 60)} minutes</p>`;
-                        html += '<ol>';
-                        
-                        instructions.forEach(function(instruction) {
-                            html += `<li>${instruction.text}</li>`;
-                        });
-                        
-                        html += '</ol>';
-                        document.getElementById('directions-panel').innerHTML = html;
-                    });
-                    
-                    routingControl.on('routingerror', function(e) {
-                        document.getElementById('directions-panel').innerHTML = 
-                            `<p>Could not calculate walking directions to ${placeName}. Error: ${e.error.message}</p>`;
-                    });
-                },
-                function(error) {
-                    let errorMessage = "Could not get your current location.";
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            errorMessage = "Location permission denied. Please enable location services.";
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            errorMessage = "Location information unavailable.";
-                            break;
-                        case error.TIMEOUT:
-                            errorMessage = "The request to get your location timed out.";
-                            break;
-                    }
-                    document.getElementById('directions-panel').innerHTML = 
-                        `<p>${errorMessage}</p><p>Showing map location only.</p>`;
-                    
-                    // Still show the route from center if we can't get location
-                    routingControl = L.Routing.control({
-                        waypoints: [
-                            map.getCenter(),
-                            L.latLng(destLat, destLng)
-                        ],
-                        routeWhileDragging: false,
-                        showAlternatives: false,
-                        addWaypoints: false,
-                        draggableWaypoints: false,
-                        fitSelectedRoutes: true,
-                        show: false,
-                        lineOptions: {
-                            styles: [{color: '#2c3e50', opacity: 0.7, weight: 5}]
-                        },
-                        createMarker: function() { return null; }
-                    }).addTo(map);
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
+          );
+        } else {
+          alert('Geolocation is not supported by your browser.');
         }
-
-        // Clear directions button
-        document.getElementById('clear-directions').addEventListener('click', function() {
-            if (routingControl) {
-                map.removeControl(routingControl);
-                routingControl = null;
-            }
-            document.getElementById('directions-panel').innerHTML = 
-                '<p>Click on a location marker to get
+      });
+    });
+  </script>
+</body>
+</html>
