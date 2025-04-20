@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Top 10 Places to Visit in Braga</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     body {
       margin: 0;
@@ -17,32 +17,25 @@
     }
     .info {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      background: white;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.8);
       padding: 10px;
       border-radius: 5px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
       z-index: 1000;
-    }
-    .info h3 {
-      margin: 0 0 10px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="info">
-    <h3>Top 10 Places in Braga</h3>
-    <p>Click on a marker to get walking directions from your current location.</p>
-  </div>
+  <div class="info" id="info">Click on a marker to get walking directions.</div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     // Initialize the map
-    const map = L.map('map').setView([41.5506, -8.4201], 14); // Centered on Braga
+    const map = L.map('map').setView([41.5503, -8.4201], 14); // Centered on Braga
 
-    // Add OpenStreetMap tiles
+    // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
@@ -50,56 +43,85 @@
 
     // Top 10 places to visit in Braga
     const places = [
-      { name: "Bom Jesus do Monte", lat: 41.5508, lng: -8.3927 },
-      { name: "Braga Cathedral", lat: 41.5491, lng: -8.4205 },
-      { name: "Sanctuary of Our Lady of Sameiro", lat: 41.5593, lng: -8.4012 },
-      { name: "The Garden of Santa Bárbara", lat: 41.5507, lng: -8.4235 },
-      { name: "Rua do Souto", lat: 41.5494, lng: -8.4215 },
-      { name: "Museu dos Biscainhos", lat: 41.5483, lng: -8.4214 },
-      { name: "Palace of the Dukes of Braganza", lat: 41.5489, lng: -8.4224 },
-      { name: "Citania de Briteiros", lat: 41.5195, lng: -8.4121 },
-      { name: "São Frutuoso Chapel", lat: 41.5497, lng: -8.4222 },
-      { name: "Monte do Picoto", lat: 41.5612, lng: -8.4123 }
+      { name: "Bom Jesus do Monte", lat: 41.5507, lng: -8.3965 },
+      { name: "Braga Cathedral", lat: 41.5499, lng: -8.4267 },
+      { name: "Theatro Circo", lat: 41.5512, lng: -8.4238 },
+      { name: "Santa Bárbara Garden", lat: 41.5523, lng: -8.4212 },
+      { name: "Arco da Porta Nova", lat: 41.5504, lng: -8.4263 },
+      { name: "Sanctuary of Sameiro", lat: 41.5611, lng: -8.4006 },
+      { name: "Palace of the Dukes of Braganza", lat: 41.5507, lng: -8.4268 },
+      { name: "Rua do Souto", lat: 41.5506, lng: -8.4256 },
+      { name: "Museu dos Biscainhos", lat: 41.5496, lng: -8.4269 },
+      { name: "Câmara Municipal de Braga", lat: 41.5508, lng: -8.4258 }
     ];
 
-    // Function to add markers to the map
-    function addMarkers() {
-      places.forEach(place => {
-        const marker = L.marker([place.lat, place.lng]).addTo(map);
-        marker.bindPopup(place.name);
+    // Add markers for each place
+    places.forEach(place => {
+      const marker = L.marker([place.lat, place.lng]).addTo(map);
+      marker.bindPopup(place.name);
 
-        // Add click event to calculate walking directions
-        marker.on('click', () => {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const userLat = position.coords.latitude;
-                const userLng = position.coords.longitude;
+      // Add click event to marker
+      marker.on('click', async () => {
+        try {
+          // Get user's current location
+          const userLocation = await getUserLocation();
 
-                // Calculate walking route using OSRM API
-                const url = `https://router.project-osrm.org/route/v1/walking/${userLng},${userLat};${place.lng},${place.lat}?geometries=geojson`;
+          // Calculate walking directions
+          const destination = [place.lat, place.lng];
+          const route = await getWalkingDirections(userLocation, destination);
 
-                fetch(url)
-                  .then(response => response.json())
-                  .then(data => {
-                    const route = data.routes[0].geometry.coordinates;
-                    const polyline = L.polyline(route.map(coord => [coord[1], coord[0]]), { color: 'blue' }).addTo(map);
-                    map.fitBounds(polyline.getBounds());
-                    alert(`Walking directions to ${place.name} are displayed on the map.`);
-                  })
-                  .catch(error => console.error('Error fetching route:', error));
-              },
-              () => alert("Geolocation failed. Please enable location services.")
-            );
-          } else {
-            alert("Geolocation is not supported by your browser.");
-          }
-        });
+          // Display route on the map
+          displayRoute(route);
+
+          // Speak the distance
+          const distanceInKm = route.distance / 1000; // Convert meters to kilometers
+          speakDistance(distanceInKm.toFixed(2));
+
+          // Update info box
+          document.getElementById('info').innerText = `Walking to ${place.name}. Distance: ${distanceInKm.toFixed(2)} km.`;
+        } catch (error) {
+          alert("Error: " + error.message);
+        }
+      });
+    });
+
+    // Function to get user's current location
+    function getUserLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation is not supported by your browser."));
+        }
+        navigator.geolocation.getCurrentPosition(
+          position => resolve([position.coords.latitude, position.coords.longitude]),
+          error => reject(error)
+        );
       });
     }
 
-    // Add markers to the map
-    addMarkers();
+    // Function to get walking directions using OpenRouteService API
+    async function getWalkingDirections(start, end) {
+      const apiKey = "YOUR_OPENROUTESERVICE_API_KEY"; // Replace with your OpenRouteService API key
+      const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch directions.");
+      const data = await response.json();
+      return data.features[0].properties.summary;
+    }
+
+    // Function to display the route on the map
+    function displayRoute(route) {
+      if (map.routeLayer) map.removeLayer(map.routeLayer);
+      const coordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+      map.routeLayer = L.polyline(coordinates, { color: 'blue' }).addTo(map);
+      map.fitBounds(map.routeLayer.getBounds());
+    }
+
+    // Function to speak the distance
+    function speakDistance(distance) {
+      const utterance = new SpeechSynthesisUtterance(`The destination is ${distance} kilometers away.`);
+      speechSynthesis.speak(utterance);
+    }
   </script>
 </body>
 </html>
