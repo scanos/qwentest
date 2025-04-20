@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Version 6 - Top 10 Places to Visit in Braga</title>
-    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body {
@@ -12,109 +11,77 @@
             margin: 0;
             padding: 0;
         }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+        }
         #map {
-            height: 100vh;
+            height: 80vh;
             width: 100%;
         }
-        .info-box {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            max-width: 300px;
-            display: none;
+        footer {
+            background-color: #333;
+            color: white;
+            text-align: center;
+            padding: 0.5rem;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
         }
-        .info-box h3 {
-            margin: 0 0 10px;
-        }
-        .info-box p {
-            margin: 0;
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center; margin: 10px;">Top 10 Places to Visit in Braga</h1>
-    <div id="map"></div>
-    <div id="info-box" class="info-box">
-        <h3>Walking Directions</h3>
-        <p id="directions"></p>
-    </div>
+    <header>
+        <h1>Top 10 Places to Visit in Braga, Portugal</h1>
+    </header>
 
-    <!-- Leaflet JS -->
+    <div id="map"></div>
+
+    <footer>
+        &copy; 2023 Your Travel Guide
+    </footer>
+
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         // Initialize the map
-        const map = L.map('map').setView([41.5503, -8.4201], 14); // Centered on Braga
+        const map = L.map('map').setView([41.5499, -8.4201], 14); // Centered on Braga Cathedral
 
         // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Top 10 places to visit in Braga
+        // Define the top 10 places to visit in Braga, ordered by proximity to Braga Cathedral
         const places = [
-            { name: "Bom Jesus do Monte", latlng: [41.5527, -8.3995] },
-            { name: "Braga Cathedral", latlng: [41.5491, -8.4268] },
-            { name: "Sanctuary of Our Lady of Sameiro", latlng: [41.5587, -8.3911] },
-            { name: "The Garden of Santa Bárbara", latlng: [41.5497, -8.4264] },
-            { name: "Arch of the New Gate", latlng: [41.5517, -8.4267] },
-            { name: "Rua do Souto", latlng: [41.5504, -8.4273] },
-            { name: "Museu dos Biscainhos", latlng: [41.5506, -8.4258] },
-            { name: "Palace of the Dukes of Bragança", latlng: [41.5524, -8.4282] },
-            { name: "Theatro Circo", latlng: [41.5511, -8.4271] },
-            { name: "Elevador do Bom Jesus", latlng: [41.5527, -8.3995] }
+            { name: "Braga Cathedral", coords: [41.5499, -8.4201] },
+            { name: "Bom Jesus do Monte", coords: [41.5567, -8.3819] },
+            { name: "Sanctuary of Our Lady of Sameiro", coords: [41.5606, -8.3765] },
+            { name: "Theatro Circo", coords: [41.5518, -8.4209] },
+            { name: "Santa Barbara Garden", coords: [41.5521, -8.4224] },
+            { name: "Arch of the New Gate", coords: [41.5489, -8.4218] },
+            { name: "Palace of the Bishops", coords: [41.5501, -8.4203] },
+            { name: "Municipal Stadium of Braga", coords: [41.5642, -8.4108] },
+            { name: "Santa Cruz Church", coords: [41.5503, -8.4212] },
+            { name: "Rua do Souto", coords: [41.5507, -8.4215] }
         ];
 
         // Add markers for each place
-        places.forEach(place => {
-            const marker = L.marker(place.latlng).addTo(map);
-            marker.bindPopup(place.name);
-
-            // Add click event to calculate walking directions
-            marker.on('click', async () => {
-                try {
-                    const userLocation = await getUserLocation();
-                    if (!userLocation) return;
-
-                    const directions = await getWalkingDirections(userLocation, place.latlng);
-                    document.getElementById('directions').textContent = directions;
-                    document.getElementById('info-box').style.display = 'block';
-                } catch (error) {
-                    alert("Error fetching directions: " + error.message);
-                }
-            });
+        places.forEach((place, index) => {
+            const marker = L.marker(place.coords).addTo(map);
+            marker.bindPopup(`<b>${index + 1}. ${place.name}</b>`).openPopup();
         });
 
-        // Function to get user's current location
-        function getUserLocation() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    reject(new Error("Geolocation is not supported by your browser."));
-                } else {
-                    navigator.geolocation.getCurrentPosition(
-                        position => resolve([position.coords.latitude, position.coords.longitude]),
-                        error => reject(error)
-                    );
-                }
-            });
-        }
-
-        // Function to fetch walking directions using OpenRouteService API
-        async function getWalkingDirections(from, to) {
-            const apiKey = "YOUR_OPENROUTESERVICE_API_KEY"; // Replace with your OpenRouteService API key
-            const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${from[1]},${from[0]}&end=${to[1]},${to[0]}`;
-
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Failed to fetch directions.");
-
-            const data = await response.json();
-            const steps = data.features[0].properties.segments[0].steps;
-            return steps.map(step => step.instruction).join("\n");
-        }
+        // Fit the map to include all markers
+        const bounds = places.map(place => place.coords);
+        map.fitBounds(bounds);
     </script>
 </body>
 </html>
