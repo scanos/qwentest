@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Belfast Pubs Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+    .pub-label {
+      background-color: white;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Top 10 pubs in Belfast with their coordinates
+    const pubs = [
+      { name: "The Crown", lat: 54.5962, lng: -5.9301 },
+      { name: "The Duke of York", lat: 54.5967, lng: -5.9309 },
+      { name: "The Harp Bar", lat: 54.5964, lng: -5.9312 },
+      { name: "Kelly's Cellars", lat: 54.5974, lng: -5.9301 },
+      { name: "The Sunflower", lat: 54.5984, lng: -5.9287 },
+      { name: "The John Hewitt", lat: 54.5972, lng: -5.9298 },
+      { name: "The Dirty Onion", lat: 54.5964, lng: -5.9310 },
+      { name: "The Spaniard", lat: 54.5966, lng: -5.9307 },
+      { name: "The Garrick", lat: 54.5970, lng: -5.9304 },
+      { name: "The Morning Star", lat: 54.5968, lng: -5.9305 }
+    ];
+
+    // Initialize the map
+    const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 16);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let currentStep = 0;
+    let polyline;
+
+    function addMarkerAndLine(index) {
+      // Clear previous markers and labels
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+          map.removeLayer(layer);
+        }
+      });
+
+      // Add marker for the current pub
+      const currentPub = pubs[index];
+      const marker = L.marker([currentPub.lat, currentPub.lng]).addTo(map);
+      marker.bindPopup(`<div class="pub-label">${currentPub.name}</div>`).openPopup();
+
+      // Center the map on the current pub
+      map.setView([currentPub.lat, currentPub.lng], 16);
+
+      // Draw a line from the previous pub to the current pub
+      if (index > 0) {
+        const previousPub = pubs[index - 1];
+        const latlngs = [
+          [previousPub.lat, previousPub.lng],
+          [currentPub.lat, currentPub.lng]
+        ];
+        polyline = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+      }
+
+      // Add click event to the marker
+      marker.on('click', () => {
+        if (currentStep < pubs.length - 1) {
+          currentStep++;
+          addMarkerAndLine(currentStep);
+        } else {
+          alert("You've visited all the pubs!");
+        }
+      });
+    }
+
+    // Start with the first pub
+    addMarkerAndLine(currentStep);
+  </script>
+</body>
+</html>
