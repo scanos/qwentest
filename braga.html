@@ -3,63 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Version 8 - Top 10 Places to Visit in Braga</title>
+    <title>Version 8</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         body {
-            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
+            font-family: Arial, sans-serif;
         }
         #map {
-            height: 100vh;
             width: 100%;
+            height: 100vh;
         }
         .flashing-marker {
-            animation: flash 1s infinite;
+            animation: flash 1.5s infinite alternate;
         }
         @keyframes flash {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+            from { opacity: 1; }
+            to { opacity: 0.2; }
         }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">Top 10 Places to Visit in Braga</h1>
+    <h1 style="text-align: center;">Top 10 Places to Visit in Braga, Portugal</h1>
     <div id="map"></div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
         // Initialize the map
-        const map = L.map('map').setView([41.5503, -8.4201], 14); // Braga Cathedral coordinates
+        const map = L.map('map').setView([41.5503, -8.4201], 14); // Centered on Braga
 
         // Add OpenStreetMap tile layer
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
         // Define the top 10 places to visit in Braga
         const places = [
-            { name: "Braga Cathedral", coords: [41.5503, -8.4201] },
-            { name: "Bom Jesus do Monte", coords: [41.5627, -8.3694] },
-            { name: "Sanctuary of Our Lady of Sameiro", coords: [41.5686, -8.3778] },
-            { name: "The Garden of Santa Bárbara", coords: [41.5507, -8.4196] },
-            { name: "Arch of the New Gate", coords: [41.5487, -8.4204] },
-            { name: "Palace of the Dukes of Braganza", coords: [41.5503, -8.4221] },
-            { name: "Museum of Image", coords: [41.5505, -8.4213] },
-            { name: "Santa Cruz Church", coords: [41.5510, -8.4217] },
-            { name: "Rúa do Souto", coords: [41.5506, -8.4212] },
-            { name: "Espaço Vita", coords: [41.5509, -8.4218] }
+            { name: "Braga Cathedral", coords: [41.5493, -8.4276] },
+            { name: "Bom Jesus do Monte", coords: [41.5509, -8.3945] },
+            { name: "Sanctuary of Our Lady of Sameiro", coords: [41.5616, -8.3981] },
+            { name: "Theatro Circo", coords: [41.5507, -8.4204] },
+            { name: "Santa Barbara Garden", coords: [41.5504, -8.4215] },
+            { name: "Arch of the New Gate", coords: [41.5508, -8.4202] },
+            { name: "Braga Castle", coords: [41.5502, -8.4208] },
+            { name: "Museum of Image", coords: [41.5497, -8.4203] },
+            { name: "Paco dos Duques de Braganca", coords: [41.5489, -8.4204] },
+            { name: "Rua do Souto", coords: [41.5501, -8.4204] }
         ];
 
-        // Function to calculate distance between two coordinates (Haversine formula)
-        function getDistance(coord1, coord2) {
+        // Create markers for all places
+        const markers = places.map(place => {
+            const marker = L.marker(place.coords).addTo(map);
+            marker.bindPopup(`<b>${place.name}</b>`); // Add popup with place name
+            return marker;
+        });
+
+        // Function to calculate distance between two coordinates
+        function calculateDistance(coord1, coord2) {
+            const [lat1, lon1] = coord1;
+            const [lat2, lon2] = coord2;
             const R = 6371e3; // Earth radius in meters
-            const φ1 = (coord1[0] * Math.PI) / 180;
-            const φ2 = (coord2[0] * Math.PI) / 180;
-            const Δφ = ((coord2[0] - coord1[0]) * Math.PI) / 180;
-            const Δλ = ((coord2[1] - coord1[1]) * Math.PI) / 180;
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
 
             const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
                       Math.cos(φ1) * Math.cos(φ2) *
@@ -68,49 +78,44 @@
             return R * c; // Distance in meters
         }
 
-        // Sort places by distance from Braga Cathedral
-        const sortedPlaces = [...places].sort((a, b) => 
-            getDistance(places[0].coords, a.coords) - getDistance(places[0].coords, b.coords)
-        );
-
-        // Add markers for each place
-        const markers = [];
-        sortedPlaces.forEach((place, index) => {
-            const marker = L.marker(place.coords).addTo(map);
-            marker.bindPopup(`${index + 1}. ${place.name}`);
-            markers.push(marker);
-        });
-
-        // Track the current location index
+        // Initialize state
         let currentIndex = 0;
+        let visitedIndices = [];
 
-        // Highlight the next location with a flashing marker
-        function highlightNextLocation() {
-            if (currentIndex >= sortedPlaces.length - 1) {
-                alert("You've visited all the locations!");
-                return;
-            }
-
-            // Remove flashing class from previous marker
-            if (currentIndex > 0) {
-                markers[currentIndex].setIcon(L.icon({ iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png' }));
-            }
-
-            // Move to the next location
-            currentIndex++;
-
-            // Flash the next marker
-            const nextMarker = markers[currentIndex];
-            nextMarker.setIcon(L.icon({
-                iconUrl: 'https://unpkg.com/leaflet/dist/images/marker-icon.png',
-                className: 'flashing-marker'
-            }));
-            map.setView(sortedPlaces[currentIndex].coords, 14);
-            nextMarker.openPopup();
+        // Function to update flashing markers
+        function updateMarkers() {
+            markers.forEach((marker, index) => {
+                if (index === currentIndex) {
+                    marker.setIcon(L.divIcon({
+                        className: 'flashing-marker',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        html: '<i class="fa fa-map-marker"></i>'
+                    }));
+                } else {
+                    marker.setIcon(L.icon.Default.prototype.options);
+                }
+            });
         }
 
-        // Attach click event to the first marker
-        markers[0].on('click', highlightNextLocation);
+        // Start with Braga Cathedral as the flashing marker
+        updateMarkers();
+
+        // Add click event listeners to markers
+        markers.forEach((marker, index) => {
+            marker.on('click', () => {
+                if (currentIndex === index && !visitedIndices.includes(index)) {
+                    visitedIndices.push(index); // Mark as visited
+                    currentIndex = places.findIndex((place, i) => !visitedIndices.includes(i)); // Find next unvisited place
+                    if (currentIndex === -1) {
+                        alert("You have visited all locations!");
+                    } else {
+                        updateMarkers();
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
