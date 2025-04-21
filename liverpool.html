@@ -1,115 +1,137 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Top 10 Pubs in Liverpool</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Arial, sans-serif;
-    }
-    #map {
-      width: 100%;
-      height: 100vh;
-    }
-  </style>
+    <title>Liverpool's Best Pub Crawl</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        html, body, #mapid { height: 100%; width: 100%; margin: 0; }
+    </style>
 </head>
 <body>
-  <div id="map"></div>
+    <div id="mapid"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Array of top 10 pubs in Liverpool, sorted by lat, long with The Philharmonic as the first element
-    const pubs = [
-      { name: "The Philharmonic", lat: 53.4065, lng: -2.9727 },
-      { name: "The Caledonia", lat: 53.4057, lng: -2.9723 },
-      { name: "The Shipping Forecast", lat: 53.4067, lng: -2.9733 },
-      { name: "The Baltic Fleet", lat: 53.4047, lng: -2.9717 },
-      { name: "The Crown", lat: 53.4075, lng: -2.9743 },
-      { name: "Ye Cracke", lat: 53.4037, lng: -2.9707 },
-      { name: "The Albert", lat: 53.4045, lng: -2.9715 },
-      { name: "The Grapes", lat: 53.4063, lng: -2.9725 },
-      { name: "The Magnet", lat: 53.4055, lng: -2.9721 },
-      { name: "The Vines", lat: 53.4069, lng: -2.9737 }
-    ];
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        const pubs = [
+            { name: "The Philharmonic Dining Rooms", lat: 53.40174, long: -2.97055 },
+            { name: "The Belvedere Arms", lat: 53.40030, long: -2.96950 },
+            { name: "Peter Kavanagh's", lat: 53.39780, long: -2.97450 },
+            { name: "The Dispensary", lat: 53.403553, long: -2.986844 },
+            { name: "The Roscoe Head", lat: 53.40690, long: -2.99190 },
+            { name: "Ye Hole In Ye Wall", lat: 53.40830, long: -2.99290 },
+            { name: "The Ship & Mitre", lat: 53.40880, long: -2.99010 },
+            { name: "The Caledonia", lat: 53.39680, long: -2.97890 },
+            { name: "The Albert Hotel", lat: 53.399433, long: -2.992117 },
+            { name: "The Swan Inn", lat: 53.5651327, long: -3.0838072 }
+        ];
 
-    // Initialize the map
-    const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 16);
-
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    let currentIndex = 0; // Start with the first pub (The Philharmonic)
-    let polyline = null; // To store the polyline for drawing lines
-
-    function addMarkerAndLabel(pub) {
-      const marker = L.marker([pub.lat, pub.lng]).addTo(map);
-      const label = L.tooltip({ permanent: true, direction: 'top' })
-        .setContent(pub.name)
-        .setLatLng([pub.lat, pub.lng])
-        .addTo(map);
-
-      marker.bindTooltip(label); // Bind the label to the marker
-      return marker;
-    }
-
-    function clearMarkersAndLabels() {
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker || layer instanceof L.Tooltip) {
-          map.removeLayer(layer);
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Radius of the earth in miles
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+            ;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const d = R * c; // Distance in miles
+            return d;
         }
-      });
-    }
 
-    function drawLine(fromPub, toPub) {
-      if (polyline) {
-        map.removeLayer(polyline); // Remove the previous line
-      }
-      polyline = L.polyline(
-        [[fromPub.lat, fromPub.lng], [toPub.lat, toPub.lng]],
-        { color: 'blue' }
-      ).addTo(map);
-    }
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180)
+        }
 
-    function visitNextPub() {
-      if (currentIndex >= pubs.length - 1) {
-        alert("You've visited all the pubs!");
-        return;
-      }
+        // Calculate distances between successive pubs
+        const distances = [];
+        for (let i = 0; i < pubs.length - 1; i++) {
+            const distance = calculateDistance(pubs[i].lat, pubs[i].long, pubs[i + 1].lat, pubs[i + 1].long);
+            distances.push({ index: i, distance: distance });
+        }
 
-      const currentPub = pubs[currentIndex];
-      const nextPub = pubs[currentIndex + 1];
+        // Sort pubs based on the calculated distances
+        distances.sort((a, b) => a.distance - b.distance);
 
-      // Clear previous markers and labels
-      clearMarkersAndLabels();
+        const sortedPubs = [pubs[0]]; // Start with the first pub
+        distances.forEach(item => {
+            sortedPubs.push(pubs[item.index + 1]);
+        });
 
-      // Draw a line from the current pub to the next pub
-      drawLine(currentPub, nextPub);
+        const mymap = L.map('mapid').setView([sortedPubs[0].lat, sortedPubs[0].long], 15);
 
-      // Add a marker and label for the next pub
-      const nextMarker = addMarkerAndLabel(nextPub);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+        }).addTo(mymap);
 
-      // Center the map on the next pub
-      map.setView([nextPub.lat, nextPub.lng], 16);
+        let currentPubIndex = 0;
+        let currentMarker;
+        let previousMarker;
+        let polyline;
+        let currentLabel;
+        let previousLabel;
 
-      // Attach a click event to the new marker
-      nextMarker.on('click', () => {
-        currentIndex++;
-        visitNextPub();
-      });
+        function displayPub(index) {
+            const pub = sortedPubs[index];
+            mymap.setView([pub.lat, pub.long], 15);
 
-      currentIndex++; // Move to the next pub
-    }
+            let labelText = pub.name;
+            if (index > 0) {
+                const distance = calculateDistance(sortedPubs[index - 1].lat, sortedPubs[index - 1].long, pub.lat, pub.long).toFixed(2);
+                labelText += ` (${distance}M)`;
+            }
 
-    // Start with The Philharmonic
-    const initialMarker = addMarkerAndLabel(pubs[0]);
-    initialMarker.on('click', visitNextPub);
-  </script>
+            if (currentMarker) {
+                mymap.removeLayer(currentMarker);
+            }
+            if (currentLabel) {
+                mymap.removeLayer(currentLabel);
+            }
+
+            currentMarker = L.marker([pub.lat, pub.long]).addTo(mymap);
+            currentLabel = L.marker([pub.lat, pub.long], {
+                icon: L.divIcon({className: 'map-label', html: `<div style="background-color: white; padding: 5px; border: 1px solid black;">${labelText}</div>` }),
+                offset: [0, -20]
+            }).addTo(mymap);
+
+            currentMarker.on('click', function() {
+                if (currentPubIndex < sortedPubs.length - 1) {
+                    const nextIndex = currentPubIndex + 1;
+                    const nextPub = sortedPubs[nextIndex];
+
+                    const nextMarker = L.marker([nextPub.lat, nextPub.long]).addTo(mymap);
+                    const nextLabel = L.marker([nextPub.lat, nextPub.long], {
+                        icon: L.divIcon({className: 'map-label', html: `<div style="background-color: white; padding: 5px; border: 1px solid black;">${nextPub.name}</div>` }),
+                        offset: [0, -20]
+                    }).addTo(mymap);
+
+                    const latlngs = [ [sortedPubs[currentPubIndex].lat, sortedPubs[currentPubIndex].long], [nextPub.lat, nextPub.long] ];
+                    if (polyline) {
+                        mymap.removeLayer(polyline);
+                    }
+                    polyline = L.polyline(latlngs, {color: 'red'}).addTo(mymap);
+
+                    mymap.setView([nextPub.lat, nextPub.long], 15);
+
+                    if (previousMarker) {
+                        mymap.removeLayer(previousMarker);
+                    }
+                    if (previousLabel) {
+                        mymap.removeLayer(previousLabel);
+                    }
+
+                    previousMarker = currentMarker;
+                    previousLabel = currentLabel;
+                    currentMarker = nextMarker;
+                    currentLabel = nextLabel;
+                    currentPubIndex = nextIndex;
+                } else {
+                    alert("You've visited all the pubs!");
+                }
+            });
+        }
+
+        displayPub(currentPubIndex);
+    </script>
 </body>
 </html>
