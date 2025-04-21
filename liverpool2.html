@@ -4,33 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pub Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
+    #map { height: 100vh; width: 100%; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
+    // Define the pubs array
     const pubs = [
-      { name: "The Philharmonic Dining Rooms", lat: 53.406369, long: -2.978953 },
-      { name: "Ye Cracke", lat: 53.402079, long: -2.977944 },
-      { name: "The Cavern Club", lat: 53.404200, long: -2.984994 },
-      { name: "The Shipping Forecast", lat: 53.408105, long: -2.985806 },
-      { name: "The Baltic Fleet", lat: 53.406536, long: -2.985654 },
-      { name: "The Slaughter House", lat: 53.400882, long: -2.976668 },
-      { name: "The Pump House", lat: 53.406405, long: -2.977760 },
-      { name: "The Grapes", lat: 53.403814, long: -2.977913 },
-      { name: "The Vines", lat: 53.407095, long: -2.984819 },
-      { name: "The Crown", lat: 53.400810, long: -2.975995 }
+      { name: "The Philharmonic Dining Rooms", lat: 53.406377, lng: -2.978365 },
+      { name: "Ye Hole in Ye Wall", lat: 53.404765, lng: -2.983201 },
+      { name: "The Shipping Forecast", lat: 53.406795, lng: -2.983557 },
+      { name: "The Cavern Club", lat: 53.405514, lng: -2.983009 },
+      { name: "The Baltic Fleet", lat: 53.402680, lng: -2.979346 },
+      { name: "The Crown Liquor Saloon", lat: 53.405290, lng: -2.982980 },
+      { name: "The Slaughter House", lat: 53.404284, lng: -2.984043 },
+      { name: "The Vines", lat: 53.406542, lng: -2.982904 },
+      { name: "The Pump House", lat: 53.403297, lng: -2.983852 },
+      { name: "The Fly in the Loaf", lat: 53.405209, lng: -2.981862 }
     ];
 
+    // Add distances and sort the array
     function haversine(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth's radius in kilometers
+      const R = 6371; // Radius of Earth in kilometers
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a =
@@ -38,66 +37,65 @@
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c * 0.621371; // Convert to miles
+      return R * c; // Distance in kilometers
     }
 
-    // Add distances to the pubs array
     for (let i = 0; i < pubs.length - 1; i++) {
-      pubs[i].distance = haversine(pubs[i].lat, pubs[i].long, pubs[i + 1].lat, pubs[i + 1].long);
+      const distanceKm = haversine(pubs[i].lat, pubs[i].lng, pubs[i + 1].lat, pubs[i + 1].lng);
+      pubs[i].distance = distanceKm * 0.621371; // Convert to miles
     }
-    pubs[pubs.length - 1].distance = haversine(pubs[pubs.length - 1].lat, pubs[pubs.length - 1].long, pubs[0].lat, pubs[0].long);
-
-    // Sort the pubs array by distance
+    pubs[pubs.length - 1].distance = 0; // Last pub has no next pub
     pubs.sort((a, b) => a.distance - b.distance);
 
     // Initialize the map
-    const map = L.map('map').setView([pubs[0].lat, pubs[0].long], 15);
+    const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
     let currentIndex = 0;
-    let previousMarker = null;
+    let markers = [];
+    let polyline;
 
-    function displayPub(index) {
+    function displayMarker(index) {
+      // Clear previous markers and lines
+      markers.forEach(marker => map.removeLayer(marker));
+      if (polyline) map.removeLayer(polyline);
+      markers = [];
+
+      // Add current marker
       const pub = pubs[index];
-      map.setView([pub.lat, pub.long], 15);
+      const marker = L.marker([pub.lat, pub.lng]).addTo(map);
+      const label = `${pub.name}${index > 0 ? ` (${pub.distance.toFixed(2)}M)` : ''}`;
+      marker.bindPopup(label).openPopup();
+      markers.push(marker);
 
-      // Remove previous markers and labels
-      if (previousMarker) {
-        map.removeLayer(previousMarker);
-      }
+      // Center the map on the current location
+      map.setView([pub.lat, pub.lng], 15);
 
-      // Add new marker
-      const marker = L.marker([pub.lat, pub.long]).addTo(map);
-      marker.bindPopup(`${pub.name}<br>${pub.distance.toFixed(2)}M`).openPopup();
+      // Add click event to move to the next pub
+      marker.on('click', () => {
+        if (index < pubs.length - 1) {
+          const nextPub = pubs[index + 1];
+          const nextMarker = L.marker([nextPub.lat, nextPub.lng]).addTo(map);
+          const nextLabel = `${nextPub.name} (${nextPub.distance.toFixed(2)}M)`;
+          nextMarker.bindPopup(nextLabel).openPopup();
+          markers.push(nextMarker);
 
-      // Draw line from previous location to current location
-      if (previousMarker) {
-        const polyline = L.polyline([
-          [previousMarker.getLatLng().lat, previousMarker.getLatLng().lng],
-          [pub.lat, pub.long]
-        ], { color: 'blue' }).addTo(map);
-      }
+          // Draw a line between the current and next location
+          polyline = L.polyline([[pub.lat, pub.lng], [nextPub.lat, nextPub.lng]], { color: 'blue' }).addTo(map);
 
-      previousMarker = marker;
-
-      // Update index
-      currentIndex = index;
+          // Remove old markers except the current and next
+          map.removeLayer(marker);
+          markers = [nextMarker];
+          displayMarker(index + 1);
+        }
+      });
     }
 
     // Start with the first pub
-    displayPub(currentIndex);
-
-    // Add click event to marker
-    map.on('click', () => {
-      if (currentIndex < pubs.length - 1) {
-        displayPub(currentIndex + 1);
-      } else {
-        alert("You've reached the last pub!");
-      }
-    });
+    displayMarker(currentIndex);
   </script>
 </body>
 </html>
