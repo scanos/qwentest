@@ -1,100 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pub Map</title>
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
+// Initialize the map
+const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Step 1: Array of pubs with lat/long coordinates
-    let pubs = [
-      { name: "The Philharmonic", lat: 53.4065, lng: -2.9775 },
-      { name: "Ye Hole in Ye Wall", lat: 53.4097, lng: -2.9856 },
-      { name: "The Shipping Forecast", lat: 53.4083, lng: -2.9855 },
-      { name: "The Cavern Club", lat: 53.4055, lng: -2.9842 },
-      { name: "The Baltic Fleet", lat: 53.4064, lng: -2.9874 },
-      { name: "The Peacock", lat: 53.4085, lng: -2.9844 },
-      { name: "The Dispensary", lat: 53.4075, lng: -2.9845 },
-      { name: "The Richmond", lat: 53.4071, lng: -2.9851 },
-      { name: "The Grapes", lat: 53.4069, lng: -2.9848 },
-      { name: "The Slaughterhouse", lat: 53.4078, lng: -2.9852 }
-    ];
+// Add OpenStreetMap tiles
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
 
-    // Step 2: Calculate distances and sort pubs array
-    function haversine(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth radius in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in km
-    }
+// Add the first marker and label
+let currentIndex = 0;
+let currentMarker = L.marker([pubs[currentIndex].lat, pubs[currentIndex].lng])
+    .addTo(map)
+    .bindPopup(pubs[currentIndex].name)
+    .openPopup();
 
-    for (let i = 0; i < pubs.length - 1; i++) {
-      pubs[i].distance = haversine(pubs[i].lat, pubs[i].lng, pubs[i + 1].lat, pubs[i + 1].lng);
-    }
-    pubs.sort((a, b) => a.distance - b.distance);
-
-    // Step 3: Initialize map and display first pub
-    const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    let currentIndex = 0;
-    let markers = [];
-    let lines = [];
-
-    function addMarker(index) {
-      const pub = pubs[index];
-      const marker = L.marker([pub.lat, pub.lng]).addTo(map);
-      marker.bindPopup(pub.name).openPopup();
-      markers.push(marker);
-
-      if (index > 0) {
-        const prevPub = pubs[index - 1];
-        const line = L.polyline([[prevPub.lat, prevPub.lng], [pub.lat, pub.lng]], { color: 'red' }).addTo(map);
-        lines.push(line);
-      }
-
-      map.setView([pub.lat, pub.lng], 15);
-
-      if (markers.length > 2) {
-        map.removeLayer(markers.shift());
-      }
-      if (lines.length > 1) {
-        map.removeLayer(lines.shift());
-      }
-    }
-
-    addMarker(currentIndex);
-
-    // Step 4: Add interactivity
-    map.on('popupclose', () => {
-      if (currentIndex < pubs.length - 1) {
+// Function to handle marker click
+currentMarker.on('click', function () {
+    if (currentIndex < pubs.length - 1) {
         currentIndex++;
-        addMarker(currentIndex);
-      } else {
-        alert("You've reached the last pub!");
-      }
-    });
-  </script>
-</body>
-</html>
+
+        // Remove old marker and popup
+        map.removeLayer(currentMarker);
+
+        // Draw a line from the old location to the new location
+        const polyline = L.polyline([
+            [pubs[currentIndex - 1].lat, pubs[currentIndex - 1].lng],
+            [pubs[currentIndex].lat, pubs[currentIndex].lng]
+        ], { color: 'blue' }).addTo(map);
+
+        // Add the new marker and label
+        currentMarker = L.marker([pubs[currentIndex].lat, pubs[currentIndex].lng])
+            .addTo(map)
+            .bindPopup(pubs[currentIndex].name)
+            .openPopup();
+
+        // Center the map on the new location
+        map.setView([pubs[currentIndex].lat, pubs[currentIndex].lng], 15);
+    }
+});
