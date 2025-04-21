@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Liverpool's Best Pub Crawl</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  #map {
+    height: 100%;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  let map;
+  let markers = [];
+  let lines = [];
+  let currentPubIndex = 0;
+
+  const pubs = [
+    { name: "The Philharmonic Dining Rooms", lat: 53.40174, lng: -2.97055 },
+    { name: "The Cavern Club", lat: 53.406333, lng: -2.988185 },
+    { name: "Ye Hole In Ye Wall", lat: 53.408, lng: -2.99 },
+    { name: "The Ship & Mitre", lat: 53.408, lng: -2.99 },
+    { name: "Peter Kavanagh's", lat: 53.397, lng: -2.966 },
+    { name: "The Roscoe Head", lat: 53.405, lng: -2.99 },
+    { name: "The Dispensary", lat: 53.407, lng: -2.985 },
+    { name: "The Caledonia", lat: 53.395, lng: -2.975 },
+    { name: "The Belvedere Arms", lat: 53.403, lng: -2.968 },
+    { name: "The Lion & ঘুরে", lat: 53.430759, lng: -2.961425 }
+  ];
+
+  function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: pubs[0].lat, lng: pubs[0].lng },
+      zoom: 15,
+    });
+
+    displayPub(0);
+  }
+
+  function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 3958.8; // Radius of the earth in miles
+    const dLat = deg2rad(lat2 - lat1);
+    const dLng = deg2rad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in miles
+    return d;
+  }
+
+  function deg2rad(deg) {
+    return deg * (Math.PI / 180);
+  }
+
+  // Calculate distances between successive pubs
+  const distances = [0];
+  for (let i = 0; i < pubs.length - 1; i++) {
+    distances.push(calculateDistance(pubs[i].lat, pubs[i].lng, pubs[i + 1].lat, pubs[i + 1].lng));
+  }
+
+  // Sort pubs based on distance from the starting pub
+  const pubsWithDistance = pubs.map((pub, index) => ({ ...pub, distance: distances[index] }));
+  pubsWithDistance.sort((a, b) => a.distance - b.distance);
+  const sortedPubs = pubsWithDistance.map(p => ({ name: p.name, lat: p.lat, lng: p.lng }));
+
+  function clearMapElements() {
+    markers.forEach(marker => marker.setMap(null));
+    lines.forEach(line => line.setMap(null));
+    markers = [];
+    lines = [];
+  }
+
+  function displayPub(index) {
+    const pub = sortedPubs[index];
+    map.setCenter({ lat: pub.lat, lng: pub.lng });
+
+    const labelText = index === 0 ? pub.name : `${pub.name} (${distances[index].toFixed(2)} M)`;
+
+    const marker = new google.maps.Marker({
+      position: { lat: pub.lat, lng: pub.lng },
+      map: map,
+      label: { text: labelText, color: 'black' },
+      title: pub.name,
+    });
+    markers.push(marker);
+
+    marker.addListener('click', () => {
+      if (currentPubIndex < sortedPubs.length - 1) {
+        clearMapElements();
+        const oldPub = sortedPubs[currentPubIndex];
+        const nextPub = sortedPubs[currentPubIndex + 1];
+
+        const oldMarker = new google.maps.Marker({
+          position: { lat: oldPub.lat, lng: oldPub.lng },
+          map: map,
+          title: oldPub.name,
+        });
+        markers.push(oldMarker);
+
+        const nextMarker = new google.maps.Marker({
+          position: { lat: nextPub.lat, lng: nextPub.lng },
+          map: map,
+          title: nextPub.name,
+        });
+        markers.push(nextMarker);
+
+        const line = new google.maps.Polyline({
+          path: [{ lat: oldPub.lat, lng: oldPub.lng }, { lat: nextPub.lat, lng: nextPub.lng }],
+          geodesic: true,
+          strokeColor: '#FF0000',
+          strokeOpacity: 1.0,
+          strokeWeight: 2,
+          map: map,
+        });
+        lines.push(line);
+
+        map.setCenter({ lat: nextPub.lat, lng: nextPub.lng });
+        currentPubIndex++;
+      } else {
+        alert("You've visited all the pubs!");
+      }
+    });
+  }
+
+  function traversePubs() {
+    clearMapElements();
+    currentPubIndex = 0;
+    displayPub(currentPubIndex);
+  }
+
+  window.onload = initMap;
+</script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap"></script>
+</body>
+</html>
