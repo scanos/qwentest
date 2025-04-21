@@ -1,145 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Top 10 Pubs in Liverpool</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    #map {
-      height: 80vh;
-      width: 100%;
-    }
-    #visit-log {
-      height: 20vh;
-      width: 100%;
-      padding: 10px;
-      overflow-y: auto;
-      border-top: 1px solid #ccc;
-      background-color: #f9f9f9;
-    }
-    h1 {
-      text-align: center;
-      margin: 10px 0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top Ten Pubs in Liverpool</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
-  <h1>Visit Top 10 Pubs in Liverpool</h1>
-  <div id="map"></div>
-  <div id="visit-log">
-    <strong>Visited Locations:</strong>
-    <ul id="log-list"></ul>
-  </div>
+    <div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Initialize the map
-    const map = L.map('map').setView([53.4066, -2.9672], 15); // Centered on The Philharmonic
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Define the top ten pubs in Liverpool with their coordinates
+        const pubs = [
+            { name: "The Philharmonic", lat: 53.406297, lng: -2.966437 },
+            { name: "The Cavern Club", lat: 53.406197, lng: -2.992134 },
+            { name: "The Shipping Forecast", lat: 53.407538, lng: -2.986453 },
+            { name: "The Baltic Fleet", lat: 53.403199, lng: -2.986127 },
+            { name: "The Slaughter House", lat: 53.405396, lng: -2.985783 },
+            { name: "The Crown", lat: 53.405823, lng: -2.989135 },
+            { name: "The Grapes", lat: 53.406432, lng: -2.985584 },
+            { name: "The Bridewell", lat: 53.404379, lng: -2.984356 },
+            { name: "The Alma de Cuba", lat: 53.404917, lng: -2.988524 },
+            { name: "The Botanical Garden", lat: 53.405682, lng: -2.986634 }
+        ];
 
-    // List of top 10 pubs in Liverpool (latitude, longitude, name)
-    const pubs = [
-      { lat: 53.4066, lng: -2.9672, name: "The Philharmonic" },
-      { lat: 53.4048, lng: -2.9714, name: "The Cavern Club" },
-      { lat: 53.4039, lng: -2.9657, name: "Ye Hole in Ye Wall" },
-      { lat: 53.4022, lng: -2.9757, name: "The Shipping Forecast" },
-      { lat: 53.4056, lng: -2.9689, name: "The Magnet" },
-      { lat: 53.4069, lng: -2.9663, name: "The Grapes" },
-      { lat: 53.4072, lng: -2.9693, name: "The Crown" },
-      { lat: 53.4051, lng: -2.9646, name: "The White Star" },
-      { lat: 53.4063, lng: -2.9681, name: "The Vines" },
-      { lat: 53.4045, lng: -2.9668, name: "The Baltic Fleet" }
-    ];
+        // Initialize the map
+        const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
 
-    let currentLocationIndex = 0; // Start at The Philharmonic
-    let polyline = null; // To store the polyline object
-    let markers = []; // To store all markers
-    const visitLog = document.getElementById('log-list');
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-    // Function to calculate distance between two points
-    function calculateDistance(lat1, lng1, lat2, lng2) {
-      const R = 6371e3; // Earth radius in meters
-      const φ1 = (lat1 * Math.PI) / 180;
-      const φ2 = (lat2 * Math.PI) / 180;
-      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-      const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+        let currentStep = 0; // Track the current step
+        let polyline; // To store the polyline
 
-      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    // Function to find the nearest pub
-    function findNearestPub(currentLat, currentLng) {
-      let minDistance = Infinity;
-      let nearestIndex = -1;
-
-      for (let i = 0; i < pubs.length; i++) {
-        if (i === currentLocationIndex) continue; // Skip the current location
-        const distance = calculateDistance(currentLat, currentLng, pubs[i].lat, pubs[i].lng);
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearestIndex = i;
+        // Function to add a marker and label
+        function addMarker(pub) {
+            const marker = L.marker([pub.lat, pub.lng]).addTo(map);
+            marker.bindPopup(pub.name).openPopup();
+            return marker;
         }
-      }
-      return nearestIndex;
-    }
 
-    // Function to add a marker and label
-    function addMarkerAndLabel(index) {
-      const pub = pubs[index];
-      const marker = L.marker([pub.lat, pub.lng]).addTo(map);
-      marker.bindPopup(pub.name).openPopup();
-      markers.push(marker);
-
-      // Add to visit log
-      const logItem = document.createElement('li');
-      logItem.textContent = pub.name;
-      visitLog.appendChild(logItem);
-
-      // Center the map on the new location
-      map.setView([pub.lat, pub.lng], 15);
-
-      // Draw a line from the previous location to the new one
-      if (polyline) {
-        map.removeLayer(polyline);
-      }
-      const previousPub = pubs[currentLocationIndex];
-      const lineCoordinates = [[previousPub.lat, previousPub.lng], [pub.lat, pub.lng]];
-      polyline = L.polyline(lineCoordinates, { color: 'blue' }).addTo(map);
-
-      // Remove all markers except the current one
-      markers.forEach((m, i) => {
-        if (i !== index) map.removeLayer(m);
-      });
-      markers = [marker];
-
-      // Update the current location index
-      currentLocationIndex = index;
-
-      // Attach click event to the new marker
-      marker.on('click', () => {
-        if (currentLocationIndex < pubs.length - 1) {
-          const nextIndex = findNearestPub(pub.lat, pub.lng);
-          addMarkerAndLabel(nextIndex);
-        } else {
-          alert("You've visited all the pubs!");
+        // Function to draw a line between two points
+        function drawLine(from, to) {
+            if (polyline) {
+                map.removeLayer(polyline); // Remove the previous line
+            }
+            polyline = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], { color: 'blue' }).addTo(map);
         }
-      });
-    }
 
-    // Start with The Philharmonic
-    addMarkerAndLabel(currentLocationIndex);
-  </script>
+        // Function to handle marker click
+        function handleMarkerClick() {
+            if (currentStep < pubs.length - 1) {
+                const currentPub = pubs[currentStep];
+                const nextPub = pubs[currentStep + 1];
+
+                // Draw a line from the current location to the next location
+                drawLine(currentPub, nextPub);
+
+                // Center the map on the next location
+                map.setView([nextPub.lat, nextPub.lng], 15);
+
+                // Remove the current marker
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                // Add a marker for the next location
+                const nextMarker = addMarker(nextPub);
+
+                // Attach the click event to the new marker
+                nextMarker.on('click', handleMarkerClick);
+
+                // Increment the step counter
+                currentStep++;
+            } else {
+                alert("You've visited all the pubs!");
+            }
+        }
+
+        // Start by adding the first marker
+        const firstMarker = addMarker(pubs[0]);
+        firstMarker.on('click', handleMarkerClick);
+    </script>
 </body>
 </html>
