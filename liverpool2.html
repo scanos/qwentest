@@ -1,121 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liverpool Pubs Map</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-    .label {
-      background: white;
-      padding: 5px;
-      border-radius: 5px;
-      font-size: 12px;
-      border: 1px solid black;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liverpool Pubs Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100%; }
+    </style>
 </head>
 <body>
-  <div id="map"></div>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Define the pubs array
+        const pubs = [
+            { name: "The Cavern Club", lat: 53.40697, lng: -2.98435, distance: 0 },
+            { name: "Ye Hole in Ye Wall", lat: 53.40736, lng: -2.98637, distance: 0.1 },
+            { name: "The Philharmonic Dining Rooms", lat: 53.40669, lng: -2.98486, distance: 0.2 },
+            { name: "The Shipping Forecast", lat: 53.40826, lng: -2.98708, distance: 0.3 },
+            { name: "The Baltic Fleet", lat: 53.40279, lng: -2.98714, distance: 0.4 },
+            { name: "The Crown", lat: 53.40452, lng: -2.98592, distance: 0.5 },
+            { name: "The Vines", lat: 53.40459, lng: -2.98586, distance: 0.6 },
+            { name: "The Pump House", lat: 53.40615, lng: -2.98678, distance: 0.7 },
+            { name: "The Magnet", lat: 53.40589, lng: -2.98647, distance: 0.8 },
+            { name: "The White Star", lat: 53.40654, lng: -2.98554, distance: 0.9 }
+        ];
 
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Array of the ten most popular pubs in Liverpool with their lat/long coordinates
-    const pubs = [
-      { name: "The Cavern Club", lat: 53.406715, lng: -2.985464 },
-      { name: "The Philharmonic Dining Rooms", lat: 53.404437, lng: -2.979461 },
-      { name: "Ye Cracke", lat: 53.403955, lng: -2.977893 },
-      { name: "The Shipping Forecast", lat: 53.408147, lng: -2.984962 },
-      { name: "The Baltic Fleet", lat: 53.401268, lng: -2.984479 },
-      { name: "The Crown", lat: 53.400569, lng: -2.977979 },
-      { name: "The Sandon", lat: 53.401268, lng: -2.984479 },
-      { name: "The Grapes", lat: 53.401268, lng: -2.984479 },
-      { name: "The Peacock", lat: 53.401268, lng: -2.984479 },
-      { name: "The Magnet", lat: 53.401268, lng: -2.984479 }
-    ];
+        // Initialize the map
+        const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
 
-    // Function to calculate distance between two points using Haversine formula
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth radius in km
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in km
-    }
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-    // Calculate distances between successive elements and sort pubs array
-    for (let i = 0; i < pubs.length - 1; i++) {
-      pubs[i].distanceToNext = calculateDistance(
-        pubs[i].lat,
-        pubs[i].lng,
-        pubs[i + 1].lat,
-        pubs[i + 1].lng
-      );
-    }
-    pubs.sort((a, b) => a.distanceToNext - b.distanceToNext);
+        let currentIndex = 0;
+        let markers = [];
+        let polyline;
 
-    // Initialize the map
-    const map = L.map("map").setView([pubs[0].lat, pubs[0].lng], 15); // Start at the first pub
+        function displayCurrentPub() {
+            const currentPub = pubs[currentIndex];
+            const label = currentIndex === 0 ? `${currentPub.name}` : `${currentPub.distance.toFixed(1)}M ${currentPub.name}`;
 
-    // Add OpenStreetMap tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors",
-    }).addTo(map);
+            // Clear previous markers and labels
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
 
-    let currentIndex = 0;
-    let previousMarker = null;
+            // Add marker for the current pub
+            const marker = L.marker([currentPub.lat, currentPub.lng]).addTo(map);
+            marker.bindPopup(label).openPopup();
+            markers.push(marker);
 
-    // Function to display marker and label for a pub
-    function displayPub(pub, index) {
-      if (previousMarker) {
-        map.removeLayer(previousMarker);
-      }
+            // Center the map on the current pub
+            map.setView([currentPub.lat, currentPub.lng], 15);
 
-      // Create marker
-      const marker = L.marker([pub.lat, pub.lng]).addTo(map);
-      marker.bindPopup(`<div class="label">${pub.name}</div>`).openPopup();
+            // Add click event to the marker
+            marker.on('click', () => {
+                if (currentIndex < pubs.length - 1) {
+                    const nextPub = pubs[currentIndex + 1];
 
-      // Center the map on the current pub
-      map.setView([pub.lat, pub.lng], 15);
+                    // Draw a line from the current pub to the next pub
+                    if (polyline) map.removeLayer(polyline);
+                    polyline = L.polyline(
+                        [[currentPub.lat, currentPub.lng], [nextPub.lat, nextPub.lng]],
+                        { color: 'blue' }
+                    ).addTo(map);
 
-      // Draw a line from the previous location to the current location
-      if (index > 0) {
-        const previousPub = pubs[index - 1];
-        const polyline = L.polyline(
-          [
-            [previousPub.lat, previousPub.lng],
-            [pub.lat, pub.lng],
-          ],
-          { color: "blue" }
-        ).addTo(map);
-      }
-
-      // Update previous marker
-      previousMarker = marker;
-
-      // Add click event to move to the next pub
-      marker.on("click", () => {
-        if (index < pubs.length - 1) {
-          displayPub(pubs[index + 1], index + 1);
-        } else {
-          alert("You've reached the last pub!");
+                    // Move to the next pub
+                    currentIndex++;
+                    displayCurrentPub();
+                }
+            });
         }
-      });
-    }
 
-    // Display the first pub
-    displayPub(pubs[currentIndex], currentIndex);
-  </script>
+        // Start displaying the first pub
+        displayCurrentPub();
+    </script>
 </body>
 </html>
