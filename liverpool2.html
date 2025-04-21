@@ -3,88 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liverpool Pub Tour</title>
+  <title>Pub Map</title>
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-    }
     #map {
       height: 100vh;
-      width: 100vw;
+      width: 100%;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Array of top 10 pubs in Liverpool, sorted by lat, long
-    const pubs = [
-      { name: "The Philharmonic", lat: 53.4067, lng: -2.9775 },
-      { name: "The Cavern Club", lat: 53.4043, lng: -2.9801 },
-      { name: "Ye Cracke", lat: 53.4035, lng: -2.9734 },
-      { name: "The Shipping Forecast", lat: 53.4076, lng: -2.9848 },
-      { name: "The Baltic Fleet", lat: 53.4014, lng: -2.9787 },
-      { name: "The Grapes", lat: 53.4051, lng: -2.9754 },
-      { name: "The Magnet", lat: 53.4036, lng: -2.9759 },
-      { name: "The Jacaranda", lat: 53.4055, lng: -2.9797 },
-      { name: "The Crown", lat: 53.4048, lng: -2.9782 },
-      { name: "The Vines", lat: 53.4057, lng: -2.9768 }
+    // Step 1: Array of pubs with lat/long coordinates
+    let pubs = [
+      { name: "The Philharmonic", lat: 53.4065, lng: -2.9775 },
+      { name: "Ye Hole in Ye Wall", lat: 53.4097, lng: -2.9856 },
+      { name: "The Shipping Forecast", lat: 53.4083, lng: -2.9855 },
+      { name: "The Cavern Club", lat: 53.4055, lng: -2.9842 },
+      { name: "The Baltic Fleet", lat: 53.4064, lng: -2.9874 },
+      { name: "The Peacock", lat: 53.4085, lng: -2.9844 },
+      { name: "The Dispensary", lat: 53.4075, lng: -2.9845 },
+      { name: "The Richmond", lat: 53.4071, lng: -2.9851 },
+      { name: "The Grapes", lat: 53.4069, lng: -2.9848 },
+      { name: "The Slaughterhouse", lat: 53.4078, lng: -2.9852 }
     ];
 
-    // Initialize the map
-    const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
+    // Step 2: Calculate distances and sort pubs array
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distance in km
+    }
 
-    // Add OpenStreetMap tiles
+    for (let i = 0; i < pubs.length - 1; i++) {
+      pubs[i].distance = haversine(pubs[i].lat, pubs[i].lng, pubs[i + 1].lat, pubs[i + 1].lng);
+    }
+    pubs.sort((a, b) => a.distance - b.distance);
+
+    // Step 3: Initialize map and display first pub
+    const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    let currentStep = 0; // Track the current pub index
-    let previousMarker, currentMarker, polyline;
+    let currentIndex = 0;
+    let markers = [];
+    let lines = [];
 
-    function addMarkerAndLine(pub) {
-      // Clear previous markers and labels
-      if (previousMarker) {
-        map.removeLayer(previousMarker);
-      }
-      if (currentMarker) {
-        previousMarker = currentMarker;
-      }
+    function addMarker(index) {
+      const pub = pubs[index];
+      const marker = L.marker([pub.lat, pub.lng]).addTo(map);
+      marker.bindPopup(pub.name).openPopup();
+      markers.push(marker);
 
-      // Create a new marker for the current pub
-      currentMarker = L.marker([pub.lat, pub.lng]).addTo(map);
-      currentMarker.bindPopup(pub.name).openPopup();
-
-      // Draw a line from the previous location to the current location
-      if (previousMarker) {
-        const latLngs = [previousMarker.getLatLng(), currentMarker.getLatLng()];
-        if (polyline) {
-          map.removeLayer(polyline);
-        }
-        polyline = L.polyline(latLngs, { color: 'blue' }).addTo(map);
+      if (index > 0) {
+        const prevPub = pubs[index - 1];
+        const line = L.polyline([[prevPub.lat, prevPub.lng], [pub.lat, pub.lng]], { color: 'red' }).addTo(map);
+        lines.push(line);
       }
 
-      // Center the map on the current location
       map.setView([pub.lat, pub.lng], 15);
 
-      // Add click event to the current marker
-      currentMarker.on('click', () => {
-        if (currentStep < pubs.length - 1) {
-          currentStep++;
-          addMarkerAndLine(pubs[currentStep]);
-        } else {
-          alert("You've visited all the pubs!");
-        }
-      });
+      if (markers.length > 2) {
+        map.removeLayer(markers.shift());
+      }
+      if (lines.length > 1) {
+        map.removeLayer(lines.shift());
+      }
     }
 
-    // Start the tour at The Philharmonic
-    addMarkerAndLine(pubs[currentStep]);
+    addMarker(currentIndex);
+
+    // Step 4: Add interactivity
+    map.on('popupclose', () => {
+      if (currentIndex < pubs.length - 1) {
+        currentIndex++;
+        addMarker(currentIndex);
+      } else {
+        alert("You've reached the last pub!");
+      }
+    });
   </script>
 </body>
 </html>
