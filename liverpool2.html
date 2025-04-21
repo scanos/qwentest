@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liverpool Pub Tour</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Array of pubs sorted by latitude and longitude with The Philharmonic as the first element
+        const pubs = [
+            { name: "The Philharmonic", lat: 53.406727, lng: -2.977573 },
+            { name: "Ye Cracke", lat: 53.403953, lng: -2.978549 },
+            { name: "The Alma de Cuba", lat: 53.403953, lng: -2.980534 },
+            { name: "The Shipping Forecast", lat: 53.405713, lng: -2.981596 },
+            { name: "The Cavern Club", lat: 53.405713, lng: -2.982596 },
+            { name: "The Vines", lat: 53.404856, lng: -2.983678 },
+            { name: "The Monro", lat: 53.404856, lng: -2.984678 },
+            { name: "The Crown Liquor Saloon", lat: 53.403953, lng: -2.985678 },
+            { name: "The Bluecoat", lat: 53.403953, lng: -2.986678 },
+            { name: "The Botanical Garden", lat: 53.403953, lng: -2.987678 }
+        ];
+
+        let currentStep = 0;
+        let previousMarker = null;
+        let polyline = null;
+
+        // Initialize the map
+        const map = L.map('map').setView([pubs[0].lat, pubs[0].lng], 16);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Function to calculate distance between two points (Haversine formula)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the Earth in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Function to find the nearest pub
+        function findNearestPub(currentLat, currentLng, visited) {
+            let nearestIndex = -1;
+            let nearestDistance = Infinity;
+
+            pubs.forEach((pub, index) => {
+                if (!visited.includes(index)) {
+                    const distance = getDistance(currentLat, currentLng, pub.lat, pub.lng);
+                    if (distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestIndex = index;
+                    }
+                }
+            });
+
+            return nearestIndex;
+        }
+
+        // Function to add a marker and label
+        function addMarker(pub, index) {
+            const marker = L.marker([pub.lat, pub.lng]).addTo(map);
+            marker.bindPopup(`<b>${pub.name}</b>`).openPopup();
+
+            // Add click event to the marker
+            marker.on('click', () => {
+                if (currentStep < pubs.length - 1) {
+                    const nextIndex = findNearestPub(pub.lat, pub.lng, [index]);
+                    const nextPub = pubs[nextIndex];
+
+                    // Draw a line from the previous location to the new location
+                    if (polyline) map.removeLayer(polyline);
+                    polyline = L.polyline([[pub.lat, pub.lng], [nextPub.lat, nextPub.lng]], { color: 'blue' }).addTo(map);
+
+                    // Center the map on the new location
+                    map.setView([nextPub.lat, nextPub.lng], 16);
+
+                    // Remove all markers except the current and previous ones
+                    map.eachLayer(layer => {
+                        if (layer instanceof L.Marker && layer !== marker && layer !== previousMarker) {
+                            map.removeLayer(layer);
+                        }
+                    });
+
+                    // Update previous marker
+                    previousMarker = marker;
+
+                    // Move to the next step
+                    currentStep++;
+                    addMarker(nextPub, nextIndex);
+                }
+            });
+
+            return marker;
+        }
+
+        // Start the tour by adding the first marker
+        previousMarker = addMarker(pubs[0], 0);
+    </script>
+</body>
+</html>
