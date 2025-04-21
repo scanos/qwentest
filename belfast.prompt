@@ -1,0 +1,5 @@
+Create a  pubs array for the ten most popular pubs in Belfast including their lat,long co-ordinates. Next calculate the distance between successive elements in pubs array and sort pubs array based on distance. Create a single html page with an openstreetmap map. Start at array element = 0
+
+Traverse pubs array by displaying for the current array element a marker and label on based on its lat,long co-ordinates and centre the map on this location. Include in the label the distance from previous pub in miles followed by a capital M if it isn't the first element in the array
+
+When the current array element  marker is clicked then a marker and label are displayed on the map for the next element of the array's lat long,  centering the map on the array element lat long coordinates. Draw a line from the old location to the new location and remove all labels and markers except the markers for the old and new location. Repeat this for all the elements in the pubs array 
