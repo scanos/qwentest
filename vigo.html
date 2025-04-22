@@ -75,54 +75,47 @@
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Variables to track current and next markers
-    let currentMarker = null;
-    let nextMarker = null;
+    // Function to display markers for the current element
+    function displayMarker(index) {
+      const place = xplaces[index];
 
-    // Function to display markers for the current and next elements
-    function displayMarkers() {
-      const currentPlace = xplaces[element];
-      const nextPlace = xplaces[element + 1];
-
-      // Remove existing markers if any
-      if (currentMarker) map.removeLayer(currentMarker);
-      if (nextMarker) map.removeLayer(nextMarker);
+      // Remove all existing markers
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
+      });
 
       // Add marker for the current element
-      currentMarker = L.marker([currentPlace.lat, currentPlace.lng]).addTo(map);
-      currentMarker.bindPopup(`<div class="label">${currentPlace.name}</div>`).openPopup();
+      const marker = L.marker([place.lat, place.lng]).addTo(map);
 
-      // Add marker for the next element if it exists
-      if (nextPlace) {
-        nextMarker = L.marker([nextPlace.lat, nextPlace.lng]).addTo(map);
-        const distance = getDistance(
-          currentPlace.lat,
-          currentPlace.lng,
-          nextPlace.lat,
-          nextPlace.lng
-        );
-        nextMarker.bindPopup(`
+      // Create the label for the marker
+      let labelContent = `<div class="label">${place.name}</div>`;
+      if (index > 0) {
+        const prevPlace = xplaces[index - 1];
+        const distance = getDistance(prevPlace.lat, prevPlace.lng, place.lat, place.lng);
+        labelContent = `
           <div class="label">
-            ${nextPlace.name}<br>
+            ${index + 1}. ${place.name}<br>
             Distance from previous: ${distance.toFixed(2)} miles
           </div>
-        `).openPopup();
+        `;
       }
 
-      // Center the map on the current marker
-      map.setView([currentPlace.lat, currentPlace.lng], 12);
+      // Bind the label to the marker
+      marker.bindPopup(labelContent).openPopup();
 
-      // Attach click event to the current marker
-      currentMarker.on("click", () => {
-        if (element < xplaces.length - 1) {
-          element++; // Increment the current element index
-          displayMarkers(); // Display markers for the next pair of elements
+      // Center the map on the current marker
+      map.setView([place.lat, place.lng], 12);
+
+      // Attach click event to the marker
+      marker.on("click", () => {
+        if (index < xplaces.length - 1) {
+          displayMarker(index + 1); // Display the next marker
         }
       });
     }
 
-    // Display the first pair of markers initially
-    displayMarkers();
+    // Display the first marker initially
+    displayMarker(element);
   </script>
 </body>
 </html>
