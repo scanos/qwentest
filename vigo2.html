@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vigo Attractions Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>Vigo Attractions Map</h1>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const x = "Vigo,Spain";
+    let element = 0;
+
+    // Array of top ten attractions in Vigo, Spain with lat, long coordinates
+    const xplaces = [
+      { name: "Castrelos Park", lat: 42.2179, lng: -8.6858 },
+      { name: "Monte de O Castro", lat: 42.2309, lng: -8.7216 },
+      { name: "Vigo Cathedral", lat: 42.2415, lng: -8.7105 },
+      { name: "Samil Beach", lat: 42.2079, lng: -8.7758 },
+      { name: "Museo do Mar de Galicia", lat: 42.2234, lng: -8.7701 },
+      { name: "Islas Cíes", lat: 42.1923, lng: -8.8744 },
+      { name: "Casco Vello", lat: 42.2417, lng: -8.7107 },
+      { name: "Praia de Rodas", lat: 42.1949, lng: -8.8771 },
+      { name: "Parque Natural das Fragas do Eume", lat: 42.2179, lng: -8.6858 },
+      { name: "Playa de Areas", lat: 42.1771, lng: -8.8291 }
+    ];
+
+    // Function to calculate distance between two points using Haversine formula (in miles)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 3958.8; // Radius of Earth in miles
+      const φ1 = (lat1 * Math.PI) / 180;
+      const φ2 = (lat2 * Math.PI) / 180;
+      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Calculate distances between consecutive elements and store them
+    for (let i = 0; i < xplaces.length - 1; i++) {
+      const dist = calculateDistance(
+        xplaces[i].lat,
+        xplaces[i].lng,
+        xplaces[i + 1].lat,
+        xplaces[i + 1].lng
+      );
+      xplaces[i].distance = dist;
+    }
+
+    // Sort xplaces by distance
+    xplaces.sort((a, b) => a.distance - b.distance);
+
+    // Initialize map
+    const map = L.map("map").setView([42.2309, -8.7216], 12); // Centered on Vigo
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+    }).addTo(map);
+
+    let currentMarker, nextMarker;
+
+    // Function to display markers and labels for element $element and $element+1
+    function displayMarkers() {
+      if (element >= xplaces.length - 1) {
+        alert("End of attractions reached.");
+        return;
+      }
+
+      // Clear existing markers
+      if (currentMarker) currentMarker.remove();
+      if (nextMarker) nextMarker.remove();
+
+      const currentPlace = xplaces[element];
+      const nextPlace = xplaces[element + 1];
+
+      // Add marker for current element
+      currentMarker = L.marker([currentPlace.lat, currentPlace.lng])
+        .addTo(map)
+        .bindPopup(`${currentPlace.name}`)
+        .openPopup();
+
+      // Add marker for next element
+      nextMarker = L.marker([nextPlace.lat, nextPlace.lng]).addTo(map);
+      nextMarker.bindPopup(
+        `${nextPlace.name}<br>Distance from ${currentPlace.name}: ${currentPlace.distance.toFixed(2)} miles`
+      );
+
+      // Center map on current element
+      map.setView([currentPlace.lat, currentPlace.lng], 12);
+
+      // Increment element
+      element++;
+    }
+
+    // Event listener for marker click
+    map.on("click", () => {
+      displayMarkers();
+    });
+
+    // Initial call to display first pair of markers
+    displayMarkers();
+  </script>
+</body>
+</html>
