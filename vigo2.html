@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vigo Attractions Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <title>Vigo Attractions</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     #map {
       height: 500px;
@@ -14,7 +14,7 @@
       background: white;
       padding: 5px;
       border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      border: 1px solid #ccc;
     }
   </style>
 </head>
@@ -22,28 +22,28 @@
   <h1>Vigo Attractions Map</h1>
   <div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Define Vigo's center coordinates
-    const vigoCenter = [42.236371, -8.719649]; // Latitude, Longitude
+    // Vigo, Spain latitude and longitude
+    const vigoCenter = [42.2333, -8.7167];
 
-    // Define top 10 attractions in Vigo with their coordinates
+    // Array of top 10 attractions in Vigo, Spain (latitude, longitude, description)
     let xplaces = [
-      { name: "Casco Vello", lat: 42.2380, lng: -8.7220 },
-      { name: "Parque de Castrelos", lat: 42.2140, lng: -8.7260 },
-      { name: "Playa de Samil", lat: 42.2050, lng: -8.7650 },
-      { name: "Monte do Castro", lat: 42.2290, lng: -8.7280 },
-      { name: "Museo de Arte Contemporánea", lat: 42.2350, lng: -8.7250 },
-      { name: "Praza da Princesa", lat: 42.2370, lng: -8.7210 },
-      { name: "Estadio de Balaídos", lat: 42.2150, lng: -8.7240 },
-      { name: "Islas Cíes", lat: 42.2000, lng: -8.8700 },
-      { name: "Zoo de Vigo", lat: 42.2160, lng: -8.7200 },
-      { name: "Mercado da Pedra", lat: 42.2380, lng: -8.7230 }
+      { lat: 42.2350, lng: -8.7200, description: "Castrelos Park" },
+      { lat: 42.2310, lng: -8.7110, description: "Vigo Cathedral" },
+      { lat: 42.2290, lng: -8.7060, description: "Casco Vello" },
+      { lat: 42.2400, lng: -8.7250, description: "Samil Beach" },
+      { lat: 42.2330, lng: -8.7300, description: "Monte del Castro" },
+      { lat: 42.2250, lng: -8.7100, description: "Port of Vigo" },
+      { lat: 42.2340, lng: -8.7220, description: "Museo do Mar" },
+      { lat: 42.2300, lng: -8.7150, description: "Praza de Compostela" },
+      { lat: 42.2270, lng: -8.7080, description: "Mercado da Pedra" },
+      { lat: 42.2380, lng: -8.7280, description: "Parque de A Xunqueira" }
     ];
 
-    // Function to calculate distance between two points in miles using Haversine formula
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 3958.8; // Earth radius in miles
+    // Function to calculate distance between two points using Haversine formula
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth radius in km
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a =
@@ -51,102 +51,79 @@
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
+      return R * c * 0.621371; // Convert to miles
     }
 
-    // Calculate nextdistance and centredistance for each place
+    // Calculate nextdistance and centredistance for each element
     for (let i = 0; i < xplaces.length; i++) {
-      // Calculate distance to the next place
       if (i < xplaces.length - 1) {
-        xplaces[i].nextdistance = calculateDistance(
+        xplaces[i].nextdistance = haversineDistance(
           xplaces[i].lat, xplaces[i].lng,
           xplaces[i + 1].lat, xplaces[i + 1].lng
-        ).toFixed(2);
+        );
       } else {
-        xplaces[i].nextdistance = null; // Last element has no next
+        xplaces[i].nextdistance = null; // Last element has no nextdistance
       }
-
-      // Calculate distance to the center of Vigo
-      xplaces[i].centredistance = calculateDistance(
+      xplaces[i].centredistance = haversineDistance(
         xplaces[i].lat, xplaces[i].lng,
         vigoCenter[0], vigoCenter[1]
-      ).toFixed(2);
+      );
     }
 
     // Sort xplaces by nextdistance
-    xplaces.sort((a, b) => {
-      if (a.nextdistance === null) return 1;
-      if (b.nextdistance === null) return -1;
-      return a.nextdistance - b.nextdistance;
-    });
+    xplaces.sort((a, b) => (a.nextdistance || Infinity) - (b.nextdistance || Infinity));
 
     // Initialize map
-    const map = L.map('map').setView(vigoCenter, 12);
-
-    // Add OpenStreetMap tiles
+    const map = L.map('map').setView(vigoCenter, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Variables for tracking current element
     let element = 0;
 
-    // Function to display the current and next markers
-    function displayMarkers() {
-      // Clear all existing markers and labels
+    // Function to display markers and labels for current and next elements
+    function displayMarkers(element) {
       map.eachLayer(layer => {
-        if (layer instanceof L.Marker || layer instanceof L.Popup) {
+        if (layer instanceof L.Marker) {
           map.removeLayer(layer);
         }
       });
 
-      // Current element
-      const current = xplaces[element];
-      const markerCurrent = L.marker([current.lat, current.lng]).addTo(map);
-      const labelCurrent = `
+      const currentPlace = xplaces[element];
+      const nextPlace = xplaces[element + 1];
+
+      // Add marker for current element
+      const currentMarker = L.marker([currentPlace.lat, currentPlace.lng]).addTo(map);
+      const currentLabel = `
         <div class="label">
-          ${current.name}<br>
-          Next Distance: ${current.nextdistance} miles<br>
-          Center Distance: ${current.centredistance} miles
+          ${currentPlace.description}<br>
+          Next Distance: ${currentPlace.nextdistance ? currentPlace.nextdistance.toFixed(2) : 'N/A'} miles<br>
+          Center Distance: ${currentPlace.centredistance.toFixed(2)} miles
         </div>`;
-      markerCurrent.bindPopup(labelCurrent).openPopup();
+      currentMarker.bindPopup(currentLabel).openPopup();
 
-      // Next element
-      if (element < xplaces.length - 1) {
-        const next = xplaces[element + 1];
-        const markerNext = L.marker([next.lat, next.lng]).addTo(map);
-        const labelNext = `
+      // Add click event to show next element
+      currentMarker.on('click', () => {
+        if (element + 1 < xplaces.length) {
+          displayMarkers(element + 1);
+        }
+      });
+
+      // Add marker for next element if it exists
+      if (nextPlace) {
+        const nextMarker = L.marker([nextPlace.lat, nextPlace.lng]).addTo(map);
+        const nextLabel = `
           <div class="label">
-            ${next.name}<br>
-            Next Distance: ${next.nextdistance} miles<br>
-            Center Distance: ${next.centredistance} miles
+            ${nextPlace.description}<br>
+            Next Distance: ${nextPlace.nextdistance ? nextPlace.nextdistance.toFixed(2) : 'N/A'} miles<br>
+            Center Distance: ${nextPlace.centredistance.toFixed(2)} miles
           </div>`;
-        markerNext.bindPopup(labelNext).openPopup();
+        nextMarker.bindPopup(nextLabel);
       }
-
-      // Increment element for the next iteration
-      element++;
     }
 
     // Initial display
-    displayMarkers();
-
-    // Add button to trigger next markers
-    const button = document.createElement('button');
-    button.innerText = 'Show Next';
-    button.style.position = 'absolute';
-    button.style.top = '10px';
-    button.style.left = '10px';
-    button.style.zIndex = 1000;
-    button.onclick = () => {
-      if (element < xplaces.length) {
-        displayMarkers();
-      } else {
-        alert('All elements have been displayed.');
-      }
-    };
-    document.body.appendChild(button);
+    displayMarkers(element);
   </script>
 </body>
 </html>
