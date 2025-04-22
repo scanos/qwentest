@@ -1,57 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vigo Attractions</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        #map { height: 600px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vigo Attractions</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+    .label {
+      background: white;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+  </style>
 </head>
 <body>
-    <h1>Top Attractions in Vigo, Spain</h1>
-    <div id="map"></div>
+  <h1>Top Attractions in Vigo, Spain</h1>
+  <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // PHP-generated data embedded in JavaScript
-        const xplaces = <?php echo json_encode($xplaces); ?>;
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Define the top attractions in Vigo, Spain with their coordinates
+    let x = "Vigo,Spain";
+    let xplaces = [
+      { name: "Castelo de Santa Trega", lat: 42.0738, lng: -8.8396 },
+      { name: "Islas Cíes", lat: 42.2333, lng: -8.9000 },
+      { name: "Monte do Castro Park", lat: 42.2239, lng: -8.7299 },
+      { name: "Casco Vello", lat: 42.2297, lng: -8.7270 },
+      { name: "Parque Natural das Fragas do Eume", lat: 43.2109, lng: -8.0149 },
+      { name: "Playa de Samil", lat: 42.2119, lng: -8.7750 },
+      { name: "Museo do Mar de Galicia", lat: 42.2350, lng: -8.7639 },
+      { name: "Praza da Constitución", lat: 42.2299, lng: -8.7275 },
+      { name: "Estadio de Balaídos", lat: 42.2209, lng: -8.7137 },
+      { name: "Zoo de Vigo", lat: 42.2456, lng: -8.6919 }
+    ];
 
-        // Initialize the map
-        const map = L.map('map').setView([42.2333, -8.7333], 12); // Centered on Vigo
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+    // Function to calculate distance between two points (Haversine formula)
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radius of Earth in km
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c * 0.621371; // Convert to miles
+    }
 
-        let currentMarker = null;
-        let previousMarker = null;
+    // Calculate distances between successive elements and add to the array
+    for (let i = 0; i < xplaces.length - 1; i++) {
+      xplaces[i].distanceToNext = getDistance(
+        xplaces[i].lat,
+        xplaces[i].lng,
+        xplaces[i + 1].lat,
+        xplaces[i + 1].lng
+      );
+    }
 
-        // Function to add a marker and label
-        function addMarker(place, index) {
-            const marker = L.marker([place.lat, place.long]).addTo(map);
-            marker.bindPopup(`${place.name}<br>${place.distance ? `Distance: ${place.distance.toFixed(2)} mi` : ''}`);
-            
-            if (currentMarker) {
-                map.removeLayer(currentMarker);
-            }
-            if (previousMarker) {
-                map.removeLayer(previousMarker);
-            }
+    // Sort the array based on the distance between successive elements
+    xplaces.sort((a, b) => (a.distanceToNext || Infinity) - (b.distanceToNext || Infinity));
 
-            previousMarker = currentMarker;
-            currentMarker = marker;
+    // Initialize the map
+    const map = L.map("map").setView([xplaces[0].lat, xplaces[0].lng], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-            marker.on('click', () => {
-                if (index + 1 < xplaces.length) {
-                    addMarker(xplaces[index + 1], index + 1);
-                }
-            });
+    // Variables to track current and previous markers
+    let currentMarker = null;
+    let previousMarker = null;
+
+    // Function to display a marker and label for an element
+    function displayMarker(index) {
+      const place = xplaces[index];
+
+      // Remove existing markers if any
+      if (currentMarker) map.removeLayer(currentMarker);
+      if (previousMarker) map.removeLayer(previousMarker);
+
+      // Add marker for the current element
+      currentMarker = L.marker([place.lat, place.lng]).addTo(map);
+      currentMarker.bindPopup(`<div class="label">${place.name}</div>`).openPopup();
+
+      // If there's a previous element, add its marker and label
+      if (index > 0) {
+        const prevPlace = xplaces[index - 1];
+        previousMarker = L.marker([prevPlace.lat, prevPlace.lng]).addTo(map);
+        const distance = getDistance(prevPlace.lat, prevPlace.lng, place.lat, place.lng);
+        previousMarker.bindPopup(`
+          <div class="label">
+            ${prevPlace.name}<br>
+            Distance to next: ${distance.toFixed(2)} miles
+          </div>
+        `).openPopup();
+      }
+
+      // Center the map on the current marker
+      map.setView([place.lat, place.lng], 12);
+
+      // Attach click event to the current marker
+      currentMarker.on("click", () => {
+        if (index < xplaces.length - 1) {
+          displayMarker(index + 1);
         }
+      });
+    }
 
-        // Add the first marker
-        addMarker(xplaces[0], 0);
-    </script>
+    // Display the first marker initially
+    displayMarker(0);
+  </script>
 </body>
 </html>
