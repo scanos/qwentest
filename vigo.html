@@ -24,8 +24,9 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Define the top attractions in Vigo, Spain with their coordinates
+    // Define the location and attractions array
     let x = "Vigo,Spain";
+    let element = 0; // Current element index
     let xplaces = [
       { name: "Castelo de Santa Trega", lat: 42.0738, lng: -8.8396 },
       { name: "Islas Cíes", lat: 42.2333, lng: -8.9000 },
@@ -54,7 +55,7 @@
       return R * c * 0.621371; // Convert to miles
     }
 
-    // Calculate distances between successive elements and add to the array
+    // Calculate distances between successive elements and store in $xplaces
     for (let i = 0; i < xplaces.length - 1; i++) {
       xplaces[i].distanceToNext = getDistance(
         xplaces[i].lat,
@@ -64,7 +65,7 @@
       );
     }
 
-    // Sort the array based on the distance between successive elements
+    // Re-sort $xplaces based on the calculated distances
     xplaces.sort((a, b) => (a.distanceToNext || Infinity) - (b.distanceToNext || Infinity));
 
     // Initialize the map
@@ -74,48 +75,54 @@
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Variables to track current and previous markers
+    // Variables to track current and next markers
     let currentMarker = null;
-    let previousMarker = null;
+    let nextMarker = null;
 
-    // Function to display a marker and label for an element
-    function displayMarker(index) {
-      const place = xplaces[index];
+    // Function to display markers for the current and next elements
+    function displayMarkers() {
+      const currentPlace = xplaces[element];
+      const nextPlace = xplaces[element + 1];
 
       // Remove existing markers if any
       if (currentMarker) map.removeLayer(currentMarker);
-      if (previousMarker) map.removeLayer(previousMarker);
+      if (nextMarker) map.removeLayer(nextMarker);
 
       // Add marker for the current element
-      currentMarker = L.marker([place.lat, place.lng]).addTo(map);
-      currentMarker.bindPopup(`<div class="label">${place.name}</div>`).openPopup();
+      currentMarker = L.marker([currentPlace.lat, currentPlace.lng]).addTo(map);
+      currentMarker.bindPopup(`<div class="label">${currentPlace.name}</div>`).openPopup();
 
-      // If there's a previous element, add its marker and label
-      if (index > 0) {
-        const prevPlace = xplaces[index - 1];
-        previousMarker = L.marker([prevPlace.lat, prevPlace.lng]).addTo(map);
-        const distance = getDistance(prevPlace.lat, prevPlace.lng, place.lat, place.lng);
-        previousMarker.bindPopup(`
+      // Add marker for the next element if it exists
+      if (nextPlace) {
+        nextMarker = L.marker([nextPlace.lat, nextPlace.lng]).addTo(map);
+        const distance = getDistance(
+          currentPlace.lat,
+          currentPlace.lng,
+          nextPlace.lat,
+          nextPlace.lng
+        );
+        nextMarker.bindPopup(`
           <div class="label">
-            ${prevPlace.name}<br>
-            Distance to next: ${distance.toFixed(2)} miles
+            ${nextPlace.name}<br>
+            Distance from previous: ${distance.toFixed(2)} miles
           </div>
         `).openPopup();
       }
 
       // Center the map on the current marker
-      map.setView([place.lat, place.lng], 12);
+      map.setView([currentPlace.lat, currentPlace.lng], 12);
 
       // Attach click event to the current marker
       currentMarker.on("click", () => {
-        if (index < xplaces.length - 1) {
-          displayMarker(index + 1);
+        if (element < xplaces.length - 1) {
+          element++; // Increment the current element index
+          displayMarkers(); // Display markers for the next pair of elements
         }
       });
     }
 
-    // Display the first marker initially
-    displayMarker(0);
+    // Display the first pair of markers initially
+    displayMarkers();
   </script>
 </body>
 </html>
