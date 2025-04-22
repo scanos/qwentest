@@ -21,6 +21,9 @@
     const x = "Vigo,Spain";
     let element = 0;
 
+    // Center coordinates of Vigo, Spain
+    const vigoCenter = { lat: 42.2309, lng: -8.7216 };
+
     // Array of top ten attractions in Vigo, Spain with lat, long coordinates
     const xplaces = [
       { name: "Castrelos Park", lat: 42.2179, lng: -8.6858 },
@@ -58,14 +61,24 @@
         xplaces[i + 1].lat,
         xplaces[i + 1].lng
       );
-      xplaces[i].distance = dist;
+      xplaces[i].distanceToNext = dist;
     }
 
-    // Sort xplaces by distance
-    xplaces.sort((a, b) => a.distance - b.distance);
+    // Calculate distances from the center of Vigo for each element
+    xplaces.forEach(place => {
+      place.distanceToCenter = calculateDistance(
+        place.lat,
+        place.lng,
+        vigoCenter.lat,
+        vigoCenter.lng
+      );
+    });
+
+    // Sort xplaces by distance to the next element
+    xplaces.sort((a, b) => a.distanceToNext - b.distanceToNext);
 
     // Initialize map
-    const map = L.map("map").setView([42.2309, -8.7216], 12); // Centered on Vigo
+    const map = L.map("map").setView([vigoCenter.lat, vigoCenter.lng], 12); // Centered on Vigo
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
     }).addTo(map);
@@ -89,13 +102,13 @@
       // Add marker for current element
       currentMarker = L.marker([currentPlace.lat, currentPlace.lng])
         .addTo(map)
-        .bindPopup(`${currentPlace.name}`)
+        .bindPopup(`${currentPlace.name}<br>Distance to Center: ${currentPlace.distanceToCenter.toFixed(2)} miles`)
         .openPopup();
 
       // Add marker for next element
       nextMarker = L.marker([nextPlace.lat, nextPlace.lng]).addTo(map);
       nextMarker.bindPopup(
-        `${nextPlace.name}<br>Distance from ${currentPlace.name}: ${currentPlace.distance.toFixed(2)} miles`
+        `${nextPlace.name}<br>Distance from ${currentPlace.name}: ${currentPlace.distanceToNext.toFixed(2)} miles<br>Distance to Center: ${nextPlace.distanceToCenter.toFixed(2)} miles`
       );
 
       // Center map on current element
