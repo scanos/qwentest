@@ -1,76 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Belfast Pubs Map</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        #map { height: 100vh; width: 100%; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liverpool Attractions</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 600px;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
-    <div id="map"></div>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // Initialize the map
-        const map = L.map('map').setView([54.5967, -5.9301], 15); // Centered on Belfast
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+  <h1>Liverpool Attractions Map</h1>
+  <div id="map"></div>
 
-        // Define pubs array (sorted by distance)
-        const pubs = [
-            { name: "The Crown Liquor Saloon", lat: 54.5967, long: -5.9301, distance: 0 },
-            { name: "The Duke of York", lat: 54.5968, long: -5.9309, distance: 0.05 },
-            { name: "The John Hewitt Society", lat: 54.5969, long: -5.9311, distance: 0.06 },
-            { name: "The Harp Bar", lat: 54.5971, long: -5.9313, distance: 0.07 },
-            { name: "The Dirty Onion", lat: 54.5973, long: -5.9315, distance: 0.08 },
-            { name: "The Sunflower Public House", lat: 54.5975, long: -5.9317, distance: 0.09 },
-            { name: "The Spaniard Bar", lat: 54.5977, long: -5.9319, distance: 0.10 },
-            { name: "The Garrick Bar", lat: 54.5979, long: -5.9321, distance: 0.11 },
-            { name: "The Points Bar", lat: 54.5981, long: -5.9323, distance: 0.12 },
-            { name: "The Black Bear", lat: 54.5983, long: -5.9325, distance: 0 }
-        ];
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Center of Liverpool, England (latitude, longitude)
+    const liverpoolCenter = [53.4084, -2.9916];
 
-        let currentIndex = 0;
-        let previousMarker = null;
+    // Array of top ten attractions in Liverpool with lat, long coordinates
+    let xplaces = [
+      { name: "Albert Dock", lat: 53.4031, lng: -2.9947 },
+      { name: "Liverpool Cathedral", lat: 53.4061, lng: -2.9628 },
+      { name: "Anfield Stadium", lat: 53.4308, lng: -2.9608 },
+      { name: "Merseyside Maritime Museum", lat: 53.4031, lng: -2.9947 },
+      { name: "The Cavern Club", lat: 53.4061, lng: -2.9844 },
+      { name: "St George's Hall", lat: 53.4095, lng: -2.9789 },
+      { name: "Liverpool ONE", lat: 53.4041, lng: -2.9889 },
+      { name: "Goodison Park", lat: 53.4402, lng: -2.9682 },
+      { name: "Walker Art Gallery", lat: 53.4095, lng: -2.9789 },
+      { name: "Sefton Park", lat: 53.3859, lng: -2.9244 }
+    ];
 
-        function addMarker(index) {
-            const pub = pubs[index];
-            const label = index === 0 ? pub.name : `${pub.name} (${pub.distance.toFixed(2)}M)`;
+    // Function to calculate distance between two points using Haversine formula
+    function haversineDistance(coord1, coord2) {
+      const R = 3958.8; // Earth's radius in miles
+      const [lat1, lon1] = coord1;
+      const [lat2, lon2] = coord2;
 
-            // Add marker
-            const marker = L.marker([pub.lat, pub.long]).addTo(map).bindPopup(label);
-            map.setView([pub.lat, pub.long], 15);
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLon = ((lon2 - lon1) * Math.PI) / 180;
 
-            // Draw line if not the first pub
-            if (previousMarker) {
-                const polyline = L.polyline([
-                    [previousMarker.getLatLng().lat, previousMarker.getLatLng().lng],
-                    [marker.getLatLng().lat, marker.getLatLng().lng]
-                ], { color: 'blue' }).addTo(map);
-            }
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLon / 2) *
+          Math.sin(dLon / 2);
 
-            // Remove previous marker if exists
-            if (previousMarker) {
-                map.removeLayer(previousMarker);
-            }
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distance in miles
+    }
 
-            // Update previous marker
-            previousMarker = marker;
+    // Calculate nextdistance and centredistance for each place
+    for (let i = 0; i < xplaces.length; i++) {
+      if (i < xplaces.length - 1) {
+        const currentCoord = [xplaces[i].lat, xplaces[i].lng];
+        const nextCoord = [xplaces[i + 1].lat, xplaces[i + 1].lng];
+        xplaces[i].nextdistance = haversineDistance(currentCoord, nextCoord);
+      } else {
+        xplaces[i].nextdistance = 0; // Last element has no next distance
+      }
 
-            // Add click event to move to next pub
-            marker.on('click', () => {
-                if (index < pubs.length - 1) {
-                    addMarker(index + 1);
-                }
-            });
+      const centerCoord = [xplaces[i].lat, xplaces[i].lng];
+      xplaces[i].centredistance = haversineDistance(centerCoord, liverpoolCenter);
+    }
+
+    // Sort xplaces by nextdistance
+    xplaces.sort((a, b) => a.nextdistance - b.nextdistance);
+
+    // Initialize map
+    const map = L.map("map").setView(liverpoolCenter, 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+    }).addTo(map);
+
+    let element = 0;
+
+    // Function to display markers and labels for the current element and the next element
+    function displayMarkers() {
+      // Clear all existing markers and labels
+      map.eachLayer((layer) => {
+        if (layer instanceof L.Marker || layer instanceof L.Popup) {
+          map.removeLayer(layer);
         }
+      });
 
-        // Start with the first pub
-        addMarker(currentIndex);
-    </script>
+      // Display marker and label for the current element
+      const currentPlace = xplaces[element];
+      const currentMarker = L.marker([currentPlace.lat, currentPlace.lng]).addTo(map);
+      currentMarker.bindPopup(
+        `<b>${currentPlace.name}</b><br>Next Distance: ${currentPlace.nextdistance.toFixed(2)} miles<br>Center Distance: ${currentPlace.centredistance.toFixed(2)} miles`
+      ).openPopup();
+
+      // Display marker and label for the next element if it exists
+      if (element < xplaces.length - 1) {
+        const nextPlace = xplaces[element + 1];
+        const nextMarker = L.marker([nextPlace.lat, nextPlace.lng]).addTo(map);
+        nextMarker.bindPopup(
+          `<b>${nextPlace.name}</b><br>Next Distance: ${nextPlace.nextdistance.toFixed(2)} miles<br>Center Distance: ${nextPlace.centredistance.toFixed(2)} miles`
+        );
+      }
+    }
+
+    // Event listener for marker click
+    map.on("popupopen", () => {
+      element++;
+      if (element < xplaces.length) {
+        displayMarkers();
+      } else {
+        alert("You have reached the last attraction!");
+      }
+    });
+
+    // Initial display of markers
+    displayMarkers();
+  </script>
 </body>
 </html>
