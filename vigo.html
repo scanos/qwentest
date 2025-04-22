@@ -3,80 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vigo Attractions Map</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Vigo Attractions</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map { height: 100vh; width: 100%; }
+        #map { height: 600px; }
     </style>
 </head>
 <body>
+    <h1>Top Attractions in Vigo, Spain</h1>
     <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-        // Define the sorted array of attractions
-        let xplaces = [
-            { name: "Casco Vello", lat: 42.2375, lng: -8.7208 },
-            { name: "Playa de Samil", lat: 42.2167, lng: -8.7500 },
-            { name: "Monte del Castro", lat: 42.2250, lng: -8.7333 },
-            { name: "Parque Natural das Fragas do Eume", lat: 43.1000, lng: -8.0000 },
-            { name: "Islas Cíes", lat: 42.2500, lng: -8.9000 },
-            { name: "Museo do Mar de Galicia", lat: 42.2400, lng: -8.7300 },
-            { name: "Castro Fortress", lat: 42.2350, lng: -8.7250 },
-            { name: "Praza da Constitución", lat: 42.2375, lng: -8.7208 },
-            { name: "Mercado da Pedra", lat: 42.2367, lng: -8.7217 },
-            { name: "Port of Vigo", lat: 42.2342, lng: -8.7225 }
-        ];
-
-        xplaces.sort((a, b) => a.name.localeCompare(b.name));
+        // PHP-generated data embedded in JavaScript
+        const xplaces = <?php echo json_encode($xplaces); ?>;
 
         // Initialize the map
-        let map = L.map('map').setView([42.2375, -8.7208], 13); // Centered on Vigo
-
-        // Add OpenStreetMap tiles
+        const map = L.map('map').setView([42.2333, -8.7333], 12); // Centered on Vigo
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Function to calculate distance between two points in miles
-        function calculateDistance(lat1, lng1, lat2, lng2) {
-            const R = 3958.8; // Earth's radius in miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
+        let currentMarker = null;
+        let previousMarker = null;
+
+        // Function to add a marker and label
+        function addMarker(place, index) {
+            const marker = L.marker([place.lat, place.long]).addTo(map);
+            marker.bindPopup(`${place.name}<br>${place.distance ? `Distance: ${place.distance.toFixed(2)} mi` : ''}`);
+            
+            if (currentMarker) {
+                map.removeLayer(currentMarker);
+            }
+            if (previousMarker) {
+                map.removeLayer(previousMarker);
+            }
+
+            previousMarker = currentMarker;
+            currentMarker = marker;
+
+            marker.on('click', () => {
+                if (index + 1 < xplaces.length) {
+                    addMarker(xplaces[index + 1], index + 1);
+                }
+            });
         }
 
-        // Add markers and popups
-        let markers = [];
-        xplaces.forEach((place, index) => {
-            let marker = L.marker([place.lat, place.lng]).addTo(map);
-            markers.push(marker);
-
-            // Create a popup with the description
-            let popupContent = `<b>${place.name}</b>`;
-            if (index < xplaces.length - 1) {
-                let nextPlace = xplaces[index + 1];
-                let distance = calculateDistance(place.lat, place.lng, nextPlace.lat, nextPlace.lng).toFixed(2);
-                popupContent += `<br>Next: ${nextPlace.name}<br>Distance: ${distance} miles`;
-            }
-
-            marker.bindPopup(popupContent);
-
-            // Add click event to show the next marker
-            if (index < xplaces.length - 1) {
-                marker.on('click', () => {
-                    map.setView([nextPlace.lat, nextPlace.lng], 13);
-                    markers[index + 1].openPopup();
-                });
-            }
-        });
-
-        // Display the first marker's popup initially
-        markers[0].openPopup();
+        // Add the first marker
+        addMarker(xplaces[0], 0);
     </script>
 </body>
 </html>
