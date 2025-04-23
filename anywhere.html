@@ -1,153 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Location Tracker</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        #map {
-            height: 500px;
-            width: 100%;
-        }
-        .error {
-            color: red;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenStreetMap with GPS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+    .error-message {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-    <h1>My Location Tracker</h1>
-    <div id="map"></div>
-    <p id="error-message" class="error"></p>
+  <h1>OpenStreetMap with GPS</h1>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        let mygps = null; // Variable to store current GPS coordinates
-        const xplaces = []; // Array to store top attractions with distances
+  <div id="map"></div>
 
-        // Initialize the map
-        const map = L.map('map').setView([0, 0], 2); // Default view at world center
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-        }).addTo(map);
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize variables
+    let mygps = null;
+    const xplaces = [
+      { name: "Attraction 1", lat: 37.7749, lng: -122.4194 },
+      { name: "Attraction 2", lat: 37.7849, lng: -122.4294 },
+      { name: "Attraction 3", lat: 37.7949, lng: -122.4394 },
+      { name: "Attraction 4", lat: 37.8049, lng: -122.4494 },
+      { name: "Attraction 5", lat: 37.8149, lng: -122.4594 },
+      { name: "Attraction 6", lat: 37.8249, lng: -122.4694 },
+      { name: "Attraction 7", lat: 37.8349, lng: -122.4794 },
+      { name: "Attraction 8", lat: 37.8449, lng: -122.4894 },
+      { name: "Attraction 9", lat: 37.8549, lng: -122.4994 },
+      { name: "Attraction 10", lat: 37.8649, lng: -122.5094 },
+    ];
 
-        // Function to calculate distance between two points in miles
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 3958.8; // Earth's radius in miles
-            const φ1 = (lat1 * Math.PI) / 180;
-            const φ2 = (lat2 * Math.PI) / 180;
-            const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-            const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    // Initialize the map
+    const map = L.map('map').setView([37.7749, -122.4194], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-            const a =
-                Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    // Function to calculate distance between two coordinates (Haversine formula)
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radius of Earth in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distance in km
+    }
 
-            return R * c;
+    // Function to find the nearest attraction
+    function findNearestAttraction(gps) {
+      let nearest = null;
+      let minDistance = Infinity;
+
+      for (const place of xplaces) {
+        const distance = calculateDistance(gps.lat, gps.lng, place.lat, place.lng);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearest = place;
         }
+      }
 
-        // Function to get user's current location
-        function getCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        mygps = [position.coords.latitude, position.coords.longitude];
-                        updateMapAndPlaces();
-                    },
-                    () => {
-                        showError("Geolocation failed. Please enter your location manually.");
-                    }
-                );
-            } else {
-                showError("Geolocation is not supported by this browser.");
-            }
+      return { ...nearest, distance: minDistance };
+    }
+
+    // Function to update the map with markers and labels
+    function updateMap() {
+      map.eachLayer(layer => {
+        if (!(layer instanceof L.TileLayer)) {
+          map.removeLayer(layer);
         }
+      });
 
-        // Function to show error message and manual input box
-        function showError(message) {
-            document.getElementById('error-message').innerText = message;
-            const manualInputLat = prompt("Enter latitude:");
-            const manualInputLng = prompt("Enter longitude:");
-            if (manualInputLat && manualInputLng) {
-                mygps = [parseFloat(manualInputLat), parseFloat(manualInputLng)];
-                updateMapAndPlaces();
-            }
+      // Add marker for mygps
+      const myMarker = L.marker([mygps.lat, mygps.lng]).addTo(map);
+      myMarker.bindPopup("You are here").openPopup();
+
+      // Find nearest attraction
+      const nearestAttraction = findNearestAttraction(mygps);
+      const nearestMarker = L.marker([nearestAttraction.lat, nearestAttraction.lng]).addTo(map);
+      nearestMarker.bindPopup(`${nearestAttraction.name}<br>${nearestAttraction.distance.toFixed(2)} km from you`);
+
+      // Re-sort xplaces by distance
+      xplaces.forEach((place, index) => {
+        if (index < xplaces.length - 1) {
+          const nextPlace = xplaces[index + 1];
+          place.distanceToNext = calculateDistance(place.lat, place.lng, nextPlace.lat, nextPlace.lng);
+        } else {
+          place.distanceToNext = 0; // Last element has no next
         }
+      });
+      xplaces.sort((a, b) => a.distanceToNext - b.distanceToNext);
+    }
 
-        // Function to update map and places
-        function updateMapAndPlaces() {
-            if (!mygps) return;
+    // Function to handle location error
+    function handleLocationError() {
+      document.body.innerHTML += `
+        <p class="error-message">Unable to retrieve your location. Please enter a description of your location:</p>
+        <input type="text" id="locationInput" placeholder="Enter location description">
+        <button onclick="calculateGPSFromInput()">Submit</button>
+      `;
+    }
 
-            // Clear previous markers
-            map.eachLayer((layer) => {
-                if (layer instanceof L.Marker) map.removeLayer(layer);
-            });
+    // Function to calculate GPS from input
+    function calculateGPSFromInput() {
+      const description = document.getElementById('locationInput').value;
+      alert(`Geocoding from description is not implemented in this example. Please use valid GPS coordinates.`);
+    }
 
-            // Add marker for mygps
-            L.marker(mygps).addTo(map).bindPopup("Your Location").openPopup();
-            map.setView(mygps, 13);
+    // Function to get current location
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            mygps = { lat: position.coords.latitude, lng: position.coords.longitude };
+            updateMap();
+          },
+          () => {
+            handleLocationError();
+          }
+        );
+      } else {
+        handleLocationError();
+      }
+    }
 
-            // Populate xplaces with mock attractions near mygps
-            populateXPlaces();
+    // Event listener for marker click
+    map.on('click', (e) => {
+      mygps = { lat: e.latlng.lat, lng: e.latlng.lng };
+      updateMap();
+    });
 
-            // Calculate distances and sort xplaces
-            for (let i = 0; i < xplaces.length - 1; i++) {
-                const distance = calculateDistance(
-                    xplaces[i].lat,
-                    xplaces[i].lng,
-                    xplaces[i + 1].lat,
-                    xplaces[i + 1].lng
-                );
-                xplaces[i].distance = distance;
-            }
-            xplaces.sort((a, b) => a.distance - b.distance);
-
-            // Find closest place to mygps
-            let closestPlace = null;
-            let minDistance = Infinity;
-            for (const place of xplaces) {
-                const distance = calculateDistance(mygps[0], mygps[1], place.lat, place.lng);
-                place.distanceFromMygps = distance;
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestPlace = place;
-                }
-            }
-
-            // Add marker for closest place
-            if (closestPlace) {
-                L.marker([closestPlace.lat, closestPlace.lng])
-                    .addTo(map)
-                    .bindPopup(`Closest Attraction (${minDistance.toFixed(2)} miles away)`);
-            }
-        }
-
-        // Function to populate xplaces with mock attractions
-        function populateXPlaces() {
-            xplaces.push(
-                { name: "Attraction 1", lat: mygps[0] + 0.01, lng: mygps[1] + 0.01 },
-                { name: "Attraction 2", lat: mygps[0] - 0.02, lng: mygps[1] - 0.02 },
-                { name: "Attraction 3", lat: mygps[0] + 0.03, lng: mygps[1] - 0.03 },
-                { name: "Attraction 4", lat: mygps[0] - 0.04, lng: mygps[1] + 0.04 },
-                { name: "Attraction 5", lat: mygps[0] + 0.05, lng: mygps[1] + 0.05 },
-                { name: "Attraction 6", lat: mygps[0] - 0.06, lng: mygps[1] - 0.06 },
-                { name: "Attraction 7", lat: mygps[0] + 0.07, lng: mygps[1] - 0.07 },
-                { name: "Attraction 8", lat: mygps[0] - 0.08, lng: mygps[1] + 0.08 },
-                { name: "Attraction 9", lat: mygps[0] + 0.09, lng: mygps[1] + 0.09 },
-                { name: "Attraction 10", lat: mygps[0] - 0.1, lng: mygps[1] - 0.1 }
-            );
-        }
-
-        // Event listener for marker click on mygps
-        map.on('click', (e) => {
-            mygps = [e.latlng.lat, e.latlng.lng];
-            updateMapAndPlaces();
-        });
-
-        // Start the process
-        getCurrentLocation();
-    </script>
+    // Initialize the app
+    getLocation();
+  </script>
 </body>
 </html>
