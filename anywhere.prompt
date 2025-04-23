@@ -1,3 +1,3 @@
 Show my GPS coordinates on a responsive html page on  a web browser on my smart phone and display it as a marker on an openstreetmap map
 
-Determine the top attractions within 5 miles of my GPS coordinates and display the first attraction as a marker on the openstreetmap map with the label showing the miles from my location 
+Determine the top attractions nearest to my GPS coordinates and display the first attraction as a marker on the openstreetmap map with the label showing the miles from my location 
