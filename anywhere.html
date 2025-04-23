@@ -3,144 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenStreetMap with GPS</title>
+  <title>GPS Coordinates and Nearby Attractions</title>
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
-      font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
+      font-family: Arial, sans-serif;
     }
     #map {
-      height: 100vh;
       width: 100%;
+      height: 100vh;
     }
-    #gps-coordinates {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(255, 255, 255, 0.8);
-      padding: 10px;
-      border-radius: 5px;
-      z-index: 1000;
-      font-size: 14px;
+    .popup-content {
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div id="gps-coordinates">Fetching GPS coordinates...</div>
   <div id="map"></div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Initialize variables
-    let mygps = null;
-
-    // List of attractions (latitude, longitude, and name)
-    const attractions = [
-      { name: "Golden Gate Bridge", lat: 37.8199, lng: -122.4783 },
-      { name: "Alcatraz Island", lat: 37.8267, lng: -122.4233 },
-      { name: "Fisherman's Wharf", lat: 37.8086, lng: -122.4174 },
-      { name: "Coit Tower", lat: 37.8024, lng: -122.4056 },
-      { name: "Palace of Fine Arts", lat: 37.8022, lng: -122.4481 },
-      { name: "Exploratorium", lat: 37.8018, lng: -122.3975 },
-      { name: "Union Square", lat: 37.7879, lng: -122.4074 },
-      { name: "Chinatown", lat: 37.7941, lng: -122.4072 },
-      { name: "Mission District", lat: 37.7596, lng: -122.4158 },
-      { name: "Lombard Street", lat: 37.8021, lng: -122.4187 },
-    ];
-
     // Initialize the map
-    const map = L.map('map').setView([37.7749, -122.4194], 12); // Default view (San Francisco)
+    const map = L.map('map').setView([0, 0], 15); // Default view at [0, 0]
+
+    // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Function to calculate distance between two coordinates (Haversine formula)
+    // Function to calculate distance in miles between two coordinates
     function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Radius of Earth in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const earthRadiusMiles = 3958.8; // Earth's radius in miles
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
       const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in km
+      return earthRadiusMiles * c;
     }
 
-    // Convert kilometers to miles
-    function kmToMiles(km) {
-      return km * 0.621371;
+    function toRadians(degrees) {
+      return degrees * Math.PI / 180;
     }
 
-    // Function to find attractions within 5 miles of the user's location
-    function findAttractionsWithin5Miles(gps) {
-      const nearbyAttractions = [];
-      for (const attraction of attractions) {
-        const distanceKm = calculateDistance(gps.lat, gps.lng, attraction.lat, attraction.lng);
-        const distanceMiles = kmToMiles(distanceKm);
-        if (distanceMiles <= 5) {
-          nearbyAttractions.push({ ...attraction, distanceMiles });
-        }
+    // Function to fetch nearby attractions using OpenStreetMap's Nominatim API
+    async function fetchNearbyAttractions(lat, lon) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=tourism&lat=${lat}&lon=${lon}&radius=5000&limit=1`;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to fetch attractions');
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error fetching attractions:', error);
+        return [];
       }
-      return nearbyAttractions.sort((a, b) => a.distanceMiles - b.distanceMiles); // Sort by distance
     }
 
-    // Function to update the map with markers and labels
-    function updateMap() {
-      map.eachLayer(layer => {
-        if (!(layer instanceof L.TileLayer)) {
-          map.removeLayer(layer);
-        }
-      });
+    // Get user's GPS coordinates
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
 
-      // Add marker for mygps
-      const myMarker = L.marker([mygps.lat, mygps.lng]).addTo(map);
-      myMarker.bindPopup("You are here").openPopup();
+      // Set the map view to the user's location
+      map.setView([latitude, longitude], 15);
 
-      // Find attractions within 5 miles
-      const nearbyAttractions = findAttractionsWithin5Miles(mygps);
-      if (nearbyAttractions.length > 0) {
-        const nearestAttraction = nearbyAttractions[0]; // Get the first attraction
-        const nearestMarker = L.marker([nearestAttraction.lat, nearestAttraction.lng]).addTo(map);
-        nearestMarker.bindPopup(
-          `${nearestAttraction.name}<br>${nearestAttraction.distanceMiles.toFixed(2)} miles from you`
-        );
+      // Add a marker for the user's location
+      const userMarker = L.marker([latitude, longitude]).addTo(map);
+      userMarker.bindPopup('<b>Your Location</b>').openPopup();
+
+      // Fetch nearby attractions
+      const attractions = await fetchNearbyAttractions(latitude, longitude);
+      if (attractions.length > 0) {
+        const attraction = attractions[0];
+        const attractionLat = parseFloat(attraction.lat);
+        const attractionLon = parseFloat(attraction.lon);
+
+        // Calculate distance from user to attraction
+        const distanceMiles = calculateDistance(latitude, longitude, attractionLat, attractionLon).toFixed(2);
+
+        // Add a marker for the nearest attraction
+        const attractionMarker = L.marker([attractionLat, attractionLon]).addTo(map);
+        attractionMarker.bindPopup(`<b>${attraction.display_name}</b><br>${distanceMiles} miles away`);
       } else {
-        alert("No attractions found within 5 miles of your location.");
+        console.log('No attractions found nearby.');
       }
-
-      // Center the map on the user's location
-      map.setView([mygps.lat, mygps.lng], 12);
-    }
-
-    // Function to handle location error
-    function handleLocationError() {
-      document.getElementById('gps-coordinates').innerText = "Unable to retrieve your location.";
-    }
-
-    // Function to get current location
-    function getLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            mygps = { lat: position.coords.latitude, lng: position.coords.longitude };
-            document.getElementById('gps-coordinates').innerText = `Your GPS Coordinates: ${mygps.lat}, ${mygps.lng}`;
-            updateMap();
-          },
-          () => {
-            handleLocationError();
-          }
-        );
-      } else {
-        handleLocationError();
-      }
-    }
-
-    // Initialize the app
-    getLocation();
+    }, (error) => {
+      console.error('Error getting location:', error.message);
+      alert('Unable to retrieve your location. Please ensure location services are enabled.');
+    });
   </script>
 </body>
 </html>
