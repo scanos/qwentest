@@ -10,9 +10,21 @@
       height: 100vh;
       width: 100%;
     }
+    #error-message {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: red;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      display: none;
+    }
   </style>
 </head>
 <body>
+  <div id="error-message">Error: Unable to retrieve valid GPS coordinates.</div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -106,17 +118,42 @@
         .openPopup();
     }
 
-    // Initial user location (default to San Francisco)
-    let currentLat = 37.7749;
-    let currentLng = -122.4194;
-    updateUserLocation(currentLat, currentLng);
+    // Get user's current location
+    function getUserLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
 
-    // Handle clicks on the map to update user location
-    map.on("click", (e) => {
-      currentLat = e.latlng.lat;
-      currentLng = e.latlng.lng;
-      updateUserLocation(currentLat, currentLng);
-    });
+            // Check for valid coordinates
+            if (isNaN(lat) || isNaN(lng)) {
+              document.getElementById("error-message").style.display = "block";
+              return;
+            }
+
+            // Update $myloc and markers
+            const myloc = { lat, lng };
+            updateUserLocation(myloc.lat, myloc.lng);
+
+            // Handle clicks on the map to update user location
+            map.on("click", (e) => {
+              const newLat = e.latlng.lat;
+              const newLng = e.latlng.lng;
+              updateUserLocation(newLat, newLng);
+            });
+          },
+          () => {
+            document.getElementById("error-message").style.display = "block";
+          }
+        );
+      } else {
+        document.getElementById("error-message").style.display = "block";
+      }
+    }
+
+    // Call getUserLocation to initialize
+    getUserLocation();
   </script>
 </body>
 </html>
