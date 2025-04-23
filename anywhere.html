@@ -3,146 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenStreetMap with GPS</title>
+  <title>Find My GPS Coordinates</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     #map {
-      height: 500px;
+      height: 100vh; /* Full screen height */
       width: 100%;
     }
     .error-message {
       color: red;
       font-weight: bold;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <h1>OpenStreetMap with GPS</h1>
-
+  <h1 style="text-align: center;">Your Current Location</h1>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Initialize variables
-    let mygps = null;
-    const xplaces = [
-      { name: "Attraction 1", lat: 37.7749, lng: -122.4194 },
-      { name: "Attraction 2", lat: 37.7849, lng: -122.4294 },
-      { name: "Attraction 3", lat: 37.7949, lng: -122.4394 },
-      { name: "Attraction 4", lat: 37.8049, lng: -122.4494 },
-      { name: "Attraction 5", lat: 37.8149, lng: -122.4594 },
-      { name: "Attraction 6", lat: 37.8249, lng: -122.4694 },
-      { name: "Attraction 7", lat: 37.8349, lng: -122.4794 },
-      { name: "Attraction 8", lat: 37.8449, lng: -122.4894 },
-      { name: "Attraction 9", lat: 37.8549, lng: -122.4994 },
-      { name: "Attraction 10", lat: 37.8649, lng: -122.5094 },
-    ];
-
     // Initialize the map
-    const map = L.map('map').setView([37.7749, -122.4194], 13);
+    const map = L.map('map').setView([0, 0], 2); // Default view at world level
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Function to calculate distance between two coordinates (Haversine formula)
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Radius of Earth in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in km
+    // Function to handle successful geolocation
+    function onSuccess(position) {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      // Center the map on the user's location
+      map.setView([latitude, longitude], 15);
+
+      // Add a marker for the user's location
+      const marker = L.marker([latitude, longitude]).addTo(map);
+      marker.bindPopup("You are here!").openPopup();
     }
 
-    // Function to find the nearest attraction
-    function findNearestAttraction(gps) {
-      let nearest = null;
-      let minDistance = Infinity;
-
-      for (const place of xplaces) {
-        const distance = calculateDistance(gps.lat, gps.lng, place.lat, place.lng);
-        if (distance < minDistance) {
-          minDistance = distance;
-          nearest = place;
-        }
-      }
-
-      return { ...nearest, distance: minDistance };
-    }
-
-    // Function to update the map with markers and labels
-    function updateMap() {
-      map.eachLayer(layer => {
-        if (!(layer instanceof L.TileLayer)) {
-          map.removeLayer(layer);
-        }
-      });
-
-      // Add marker for mygps
-      const myMarker = L.marker([mygps.lat, mygps.lng]).addTo(map);
-      myMarker.bindPopup("You are here").openPopup();
-
-      // Find nearest attraction
-      const nearestAttraction = findNearestAttraction(mygps);
-      const nearestMarker = L.marker([nearestAttraction.lat, nearestAttraction.lng]).addTo(map);
-      nearestMarker.bindPopup(`${nearestAttraction.name}<br>${nearestAttraction.distance.toFixed(2)} km from you`);
-
-      // Re-sort xplaces by distance
-      xplaces.forEach((place, index) => {
-        if (index < xplaces.length - 1) {
-          const nextPlace = xplaces[index + 1];
-          place.distanceToNext = calculateDistance(place.lat, place.lng, nextPlace.lat, nextPlace.lng);
-        } else {
-          place.distanceToNext = 0; // Last element has no next
-        }
-      });
-      xplaces.sort((a, b) => a.distanceToNext - b.distanceToNext);
-    }
-
-    // Function to handle location error
-    function handleLocationError() {
+    // Function to handle geolocation errors
+    function onError(error) {
+      const errorMessages = {
+        1: "Permission denied.",
+        2: "Position unavailable.",
+        3: "Request timed out."
+      };
       document.body.innerHTML += `
-        <p class="error-message">Unable to retrieve your location. Please enter a description of your location:</p>
-        <input type="text" id="locationInput" placeholder="Enter location description">
-        <button onclick="calculateGPSFromInput()">Submit</button>
+        <p class="error-message">Error retrieving your location: ${errorMessages[error.code] || "Unknown error."}</p>
       `;
     }
 
-    // Function to calculate GPS from input
-    function calculateGPSFromInput() {
-      const description = document.getElementById('locationInput').value;
-      alert(`Geocoding from description is not implemented in this example. Please use valid GPS coordinates.`);
+    // Check if geolocation is supported by the browser
+    if (navigator.geolocation) {
+      // Request the user's current position
+      navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+        enableHighAccuracy: true, // Use GPS if available
+        timeout: 10000, // Timeout after 10 seconds
+        maximumAge: 0 // Don't use cached position
+      });
+    } else {
+      document.body.innerHTML += `
+        <p class="error-message">Geolocation is not supported by your browser.</p>
+      `;
     }
-
-    // Function to get current location
-    function getLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            mygps = { lat: position.coords.latitude, lng: position.coords.longitude };
-            updateMap();
-          },
-          () => {
-            handleLocationError();
-          }
-        );
-      } else {
-        handleLocationError();
-      }
-    }
-
-    // Event listener for marker click
-    map.on('click', (e) => {
-      mygps = { lat: e.latlng.lat, lng: e.latlng.lng };
-      updateMap();
-    });
-
-    // Initialize the app
-    getLocation();
   </script>
 </body>
 </html>
