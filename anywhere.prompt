@@ -1,5 +1,5 @@
 
-calculate the lat long coordinates of my current location based on my device location services and assign it to a variable called my $mygps. if $mygps doesn't have valid lat long coordinates then show an error message and an input box for manual input of location description and when returned calculate the GPS coordinates for the input location and assign them to $mygps
+without using opencage ,calculate the lat long coordinates of my current location based on my device location services and assign it to a variable called my $mygps. if $mygps doesn't have valid lat long coordinates then show an error message and an input box for manual input of location description and when returned calculate the GPS coordinates for the input location and assign them to $mygps
 
 
 Using only html and JavaScript provide the code for the following.create an array called $xplaces of top ten attractions nearest to $mygps including lat,long co-ordinates. for each element in $xplaces calculate the distance between the current element and the next element, except the last element. Store the calculated distances in $xplaces re-sort $xplaces on distance.
