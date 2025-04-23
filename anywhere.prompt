@@ -1,13 +1,12 @@
 
+calculate the lat long coordinates of my current location based on my device location services and assign it to a variable called my $mygps. if $mygps doesn't have valid lat long coordinates then show an error message and an input box for manual input of location description and when returned calculate the GPS coordinates for the input location and assign them to $mygps
 
-Using only html and JavaScript provide the code for the following.create an array called $xplaces of top ten attractions nearest to my location including lat,long co-ordinates. for each element in $xplaces calculate the distance between the current element and the next element, except the last element. Store the calculated distances in $xplaces re-sort $xplaces on distance.
 
-calculate my current location based on my smartphone lat long coordinates and assign it to a variable called $myloc 
+Using only html and JavaScript provide the code for the following.create an array called $xplaces of top ten attractions nearest to $mygps including lat,long co-ordinates. for each element in $xplaces calculate the distance between the current element and the next element, except the last element. Store the calculated distances in $xplaces re-sort $xplaces on distance.
 
-if $myloc doesn't have valid lat long coordinates then show an error message 
 
-Display on an openstreetmap map on a single html page a label and marker at $myloc
+Display on an openstreetmap map on a single html page a label and marker at $mygps
 
-Display and the marker and label for the element in $xplaces with lat long coordinates closest to $myloc The label for the element should should show the distance between the element and my location.
+Display and the marker and label for the element in $xplaces with lat long coordinates closest to $mygps The label for the element should should show the distance between the element and $mygps.
 
-When I click on the marker for $myloc it should redraw the marker and label for my new location based on the lat long coordinates of my new location and update $myloc with the new lat long coordinates of my current position and search $xplaces and draw a marker and label (showing miles from my $myloc ) at the lat long coordinates for the element in $xplaces
+When I click on the marker for $mygps it should redraw the marker and label for my new location based on the lat long coordinates of my new location and update $mygps with the new lat long coordinates of my current position and search $xplaces and draw a marker and label (showing miles from my $myloc ) at the lat long coordinates for the element in $xplaces
