@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nearest Attractions</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // Array of top 10 attractions (latitude, longitude)
+    const xplaces = [
+      { name: "Attraction 1", lat: 37.7749, lng: -122.4194 },
+      { name: "Attraction 2", lat: 37.7849, lng: -122.4294 },
+      { name: "Attraction 3", lat: 37.7949, lng: -122.4394 },
+      { name: "Attraction 4", lat: 37.8049, lng: -122.4494 },
+      { name: "Attraction 5", lat: 37.8149, lng: -122.4594 },
+      { name: "Attraction 6", lat: 37.8249, lng: -122.4694 },
+      { name: "Attraction 7", lat: 37.8349, lng: -122.4794 },
+      { name: "Attraction 8", lat: 37.8449, lng: -122.4894 },
+      { name: "Attraction 9", lat: 37.8549, lng: -122.4994 },
+      { name: "Attraction 10", lat: 37.8649, lng: -122.5094 },
+    ];
+
+    // Function to calculate distance between two points using Haversine formula
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radius of the Earth in km
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c * 0.621371; // Convert to miles
+    }
+
+    // Calculate distances between consecutive elements in xplaces
+    for (let i = 0; i < xplaces.length - 1; i++) {
+      const distance = calculateDistance(
+        xplaces[i].lat,
+        xplaces[i].lng,
+        xplaces[i + 1].lat,
+        xplaces[i + 1].lng
+      );
+      xplaces[i].distanceToNext = distance;
+    }
+
+    // Sort xplaces by distance to next element
+    xplaces.sort((a, b) => (a.distanceToNext || Infinity) - (b.distanceToNext || Infinity));
+
+    // Initialize map
+    const map = L.map("map").setView([37.7749, -122.4194], 13); // Default location (San Francisco)
+
+    // Add OpenStreetMap tiles
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap contributors",
+    }).addTo(map);
+
+    let userMarker;
+    let nearestMarker;
+
+    // Function to update user location and nearest attraction
+    function updateUserLocation(lat, lng) {
+      if (userMarker) {
+        map.removeLayer(userMarker);
+      }
+      if (nearestMarker) {
+        map.removeLayer(nearestMarker);
+      }
+
+      // Add user marker
+      userMarker = L.marker([lat, lng])
+        .addTo(map)
+        .bindPopup("Your Location")
+        .openPopup();
+
+      // Find nearest attraction
+      let nearestAttraction = null;
+      let nearestDistance = Infinity;
+
+      for (const place of xplaces) {
+        const distance = calculateDistance(lat, lng, place.lat, place.lng);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestAttraction = place;
+        }
+      }
+
+      // Add nearest attraction marker
+      nearestMarker = L.marker([nearestAttraction.lat, nearestAttraction.lng])
+        .addTo(map)
+        .bindPopup(`${nearestAttraction.name} (${nearestDistance.toFixed(2)} miles)`)
+        .openPopup();
+    }
+
+    // Initial user location (default to San Francisco)
+    let currentLat = 37.7749;
+    let currentLng = -122.4194;
+    updateUserLocation(currentLat, currentLng);
+
+    // Handle clicks on the map to update user location
+    map.on("click", (e) => {
+      currentLat = e.latlng.lat;
+      currentLng = e.latlng.lng;
+      updateUserLocation(currentLat, currentLng);
+    });
+  </script>
+</body>
+</html>
