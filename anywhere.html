@@ -1,93 +1,83 @@
-// Check if geolocation is supported
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(async (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nearest City Finder</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
 
-        // Get the nearest city
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Function to fetch the nearest city using reverse geocoding
+    async function getNearestCity(lat, lon) {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data.address.city || data.address.town || data.address.village || "Unknown Location";
+    }
+
+    // Function to initialize the map and add a marker for the nearest city
+    async function initMap() {
+      // Check if geolocation is supported by the browser
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+      }
+
+      // Get the user's current position
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        // Fetch the nearest city
         const city = await getNearestCity(latitude, longitude);
 
-        // Initialize the map and add markers
-        initializeMap(city);
-    }, (error) => {
-        console.error("Error getting location:", error);
-    });
-} else {
-    console.error("Geolocation is not supported by this browser.");
-}
+        // Use Nominatim to get the coordinates of the city center
+        const cityUrl = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(city)}&format=json&limit=1`;
+        const cityResponse = await fetch(cityUrl);
+        const cityData = await cityResponse.json();
 
-/**
- * Function to get the nearest city using reverse geocoding
- */
-async function getNearestCity(lat, lon) {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
-    const response = await fetch(url);
-    const data = await response.json();
+        if (cityData.length === 0) {
+          alert("Could not find the city center coordinates.");
+          return;
+        }
 
-    // Extract the city name
-    const address = data.address;
-    const cityName = address.city || address.town || address.village || "Unknown";
-    return { name: cityName, lat: parseFloat(data.lat), lon: parseFloat(data.lon) };
-}
+        const cityLat = parseFloat(cityData[0].lat);
+        const cityLon = parseFloat(cityData[0].lon);
 
-/**
- * Function to initialize the map and add markers
- */
-function initializeMap(city) {
-    // Create the map centered on the city
-    const map = L.map('map').setView([city.lat, city.lon], 12);
+        // Initialize the map
+        const map = L.map('map').setView([cityLat, cityLon], 13);
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-    // Add marker for the city center
-    L.marker([city.lat, city.lon])
-        .addTo(map)
-        .bindPopup(`<b>${city.name}</b><br>City Center`)
-        .openPopup();
+        // Add a marker for the city center
+        const marker = L.marker([cityLat, cityLon]).addTo(map);
+        marker.bindPopup(`<b>${city}</b>`).openPopup();
 
-    // Define top attractions for the city
-    const attractions = {
-        "New York": [
-            { name: "Statue of Liberty", lat: 40.6892, lon: -74.0445 },
-            { name: "Central Park", lat: 40.7851, lon: -73.9683 },
-            { name: "Times Square", lat: 40.7589, lon: -73.9851 },
-            { name: "Empire State Building", lat: 40.7484, lon: -73.9857 },
-            { name: "Brooklyn Bridge", lat: 40.7061, lon: -73.9969 },
-            { name: "Metropolitan Museum of Art", lat: 40.7794, lon: -73.9632 },
-            { name: "One World Trade Center", lat: 40.7127, lon: -74.0134 },
-            { name: "High Line", lat: 40.7479, lon: -74.0043 }
-        ]
-    };
+        console.log(`Nearest city: ${city}`);
+      }, (error) => {
+        alert(`Error getting location: ${error.message}`);
+      });
+    }
 
-    // Get attractions for the detected city
-    const places = attractions[city.name] || [];
-
-    // Calculate distances and add markers for each attraction
-    places.forEach(place => {
-        place.distance = haversineDistance(city.lat, city.lon, place.lat, place.lon);
-
-        // Add marker for the attraction
-        L.marker([place.lat, place.lon])
-            .addTo(map)
-            .bindPopup(`${place.name}<br>${place.distance.toFixed(2)} miles from ${city.name}`);
-    });
-}
-
-/**
- * Function to calculate the distance between two GPS coordinates using the Haversine formula
- */
-function haversineDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distanceKm = R * c;
-    return distanceKm * 0.621371; // Convert to miles
-}
+    // Initialize the map when the page loads
+    window.onload = initMap;
+  </script>
+</body>
+</html>
