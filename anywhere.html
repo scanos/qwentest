@@ -41,12 +41,34 @@
             return data.address.city || data.address.town || data.address.village;
         }
 
-        // Step 3: Fetch Top Attractions Near the City
+        // Step 3: Fetch Top Attractions in the City
         async function getTopAttractions(city) {
-            const url = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(city)}&format=json&limit=5&addressdetails=1&extratags=1&namedetails=1`;
+            const query = `
+                [out:json];
+                area[name="${city}"]->.searchArea;
+                (
+                    node["tourism"](area.searchArea);
+                    way["tourism"](area.searchArea);
+                    relation["tourism"](area.searchArea);
+                );
+                out center;
+            `;
+            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
             const response = await fetch(url);
             const data = await response.json();
-            return data.filter(item => item.extratags && item.extratags.tourism).slice(0, 1); // Get the first attraction
+
+            const places = [];
+            for (const element of data.elements) {
+                if (element.center && element.tags && element.tags.name) {
+                    places.push({
+                        name: element.tags.name,
+                        lat: element.center.lat,
+                        lon: element.center.lon
+                    });
+                    if (places.length >= 5) break; // Limit to top 5 attractions
+                }
+            }
+            return places;
         }
 
         // Step 4: Calculate Distance Between Two GPS Coordinates
@@ -95,19 +117,17 @@
                     .bindPopup(`Center of ${city}`).openPopup();
 
                 // Fetch Top Attractions
-                const attractions = await getTopAttractions(city);
-                if (attractions.length > 0) {
-                    const attraction = attractions[0];
-                    const attractionLat = parseFloat(attraction.lat);
-                    const attractionLon = parseFloat(attraction.lon);
-                    const distanceMiles = calculateDistance(userLat, userLon, attractionLat, attractionLon).toFixed(2);
+                const places = await getTopAttractions(city);
+                for (const place of places) {
+                    const distanceMiles = calculateDistance(cityLat, cityLon, place.lat, place.lon).toFixed(2);
+                    place.distanceMiles = distanceMiles;
 
-                    // Add Marker for First Attraction
-                    L.marker([attractionLat, attractionLon]).addTo(map)
-                        .bindPopup(`${attraction.display_name}<br>${distanceMiles} miles from your location`).openPopup();
-                } else {
-                    console.log("No attractions found.");
+                    // Add Marker for Each Attraction
+                    L.marker([place.lat, place.lon]).addTo(map)
+                        .bindPopup(`${place.name}<br>${distanceMiles} miles from ${city}`);
                 }
+
+                console.log("Top Attractions:", places);
             } catch (error) {
                 console.error("Error:", error);
             }
