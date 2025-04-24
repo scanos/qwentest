@@ -1,140 +1,72 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nearest City and Attractions</title>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script>
-        // Step 1: Get GPS Coordinates
-        function getUserLocation() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    reject("Geolocation is not supported by your browser.");
-                } else {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => resolve(position.coords),
-                        (error) => reject(error.message)
-                    );
-                }
-            });
-        }
+        const city = await getNearestCity(latitude, longitude);
+        initializeMap(city);
+    }, (error) => {
+        console.error("Error getting location:", error);
+    });
+} else {
+    console.error("Geolocation is not supported by this browser.");
+}
 
-        // Step 2: Reverse Geocode to Find Nearest City
-        async function getNearestCity(lat, lon) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
-            const response = await fetch(url);
-            const data = await response.json();
-            return data.address.city || data.address.town || data.address.village;
-        }
+async function getNearestCity(lat, lon) {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    const address = data.address;
+    const cityName = address.city || address.town || address.village || "Unknown";
+    return { name: cityName, lat: parseFloat(data.lat), lon: parseFloat(data.lon) };
+}
 
-        // Step 3: Fetch Top Attractions in the City
-        async function getTopAttractions(city) {
-            const query = `
-                [out:json];
-                area[name="${city}"]->.searchArea;
-                (
-                    node["tourism"](area.searchArea);
-                    way["tourism"](area.searchArea);
-                    relation["tourism"](area.searchArea);
-                );
-                out center;
-            `;
-            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-            const response = await fetch(url);
-            const data = await response.json();
+function initializeMap(city) {
+    const map = L.map('map').setView([city.lat, city.lon], 12);
 
-            const places = [];
-            for (const element of data.elements) {
-                if (element.center && element.tags && element.tags.name) {
-                    places.push({
-                        name: element.tags.name,
-                        lat: element.center.lat,
-                        lon: element.center.lon
-                    });
-                    if (places.length >= 8) break; // Limit to top 8 attractions
-                }
-            }
-            return places;
-        }
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-        // Step 4: Calculate Distance Between Two GPS Coordinates
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radius of Earth in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distanceKm = R * c;
-            return distanceKm * 0.621371; // Convert to miles
-        }
+    L.marker([city.lat, city.lon])
+        .addTo(map)
+        .bindPopup(`<b>${city.name}</b><br>City Center`)
+        .openPopup();
 
-        // Main Function
-        async function main() {
-            try {
-                // Get User Location
-                const coords = await getUserLocation();
-                const userLat = coords.latitude;
-                const userLon = coords.longitude;
+    const attractions = {
+        "New York": [
+            { name: "Statue of Liberty", lat: 40.6892, lon: -74.0445 },
+            { name: "Central Park", lat: 40.7851, lon: -73.9683 },
+            { name: "Times Square", lat: 40.7589, lon: -73.9851 },
+            { name: "Empire State Building", lat: 40.7484, lon: -73.9857 },
+            { name: "Brooklyn Bridge", lat: 40.7061, lon: -73.9969 },
+            { name: "Metropolitan Museum of Art", lat: 40.7794, lon: -73.9632 },
+            { name: "One World Trade Center", lat: 40.7127, lon: -74.0134 },
+            { name: "High Line", lat: 40.7479, lon: -74.0043 }
+        ]
+    };
 
-                // Find Nearest City
-                const city = await getNearestCity(userLat, userLon);
-                console.log(`Nearest City: ${city}`);
+    const places = attractions[city.name] || [];
+    places.forEach(place => {
+        place.distance = haversineDistance(city.lat, city.lon, place.lat, place.lon);
+    });
 
-                // Initialize Map
-                const map = L.map('map').setView([userLat, userLon], 10);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
+    places.forEach(place => {
+        L.marker([place.lat, place.lon])
+            .addTo(map)
+            .bindPopup(`${place.name}<br>${place.distance.toFixed(2)} miles from ${city.name}`);
+    });
+}
 
-                // Add Marker for User Location
-                L.marker([userLat, userLon]).addTo(map)
-                    .bindPopup("Your Location").openPopup();
-
-                // Add Marker for City Center
-                const cityResponse = await fetch(`https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(city)}&format=json`);
-                const cityData = await cityResponse.json();
-                const cityLat = parseFloat(cityData[0].lat);
-                const cityLon = parseFloat(cityData[0].lon);
-                L.marker([cityLat, cityLon]).addTo(map)
-                    .bindPopup(`Center of ${city}`).openPopup();
-
-                // Fetch Top Attractions
-                const places = await getTopAttractions(city);
-                for (const place of places) {
-                    const distanceMiles = calculateDistance(cityLat, cityLon, place.lat, place.lon).toFixed(2);
-                    place.distanceMiles = distanceMiles;
-
-                    // Add Marker for Each Attraction
-                    L.marker([place.lat, place.lon]).addTo(map)
-                        .bindPopup(`${place.name}<br>${distanceMiles} miles from ${city}`);
-                }
-
-                console.log("Top Attractions:", places);
-            } catch (error) {
-                console.error("Error:", error);
-            }
-        }
-
-        // Run the Application 
-        main();
-    </script>
-</body>
-</html>
+function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distanceKm = R * c;
+    return distanceKm * 0.621371; // Convert to miles
+}
