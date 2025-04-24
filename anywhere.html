@@ -1,9 +1,13 @@
+// Check if geolocation is supported
 if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(async (position) => {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
 
+        // Get the nearest city
         const city = await getNearestCity(latitude, longitude);
+
+        // Initialize the map and add markers
         initializeMap(city);
     }, (error) => {
         console.error("Error getting location:", error);
@@ -12,28 +16,40 @@ if (navigator.geolocation) {
     console.error("Geolocation is not supported by this browser.");
 }
 
+/**
+ * Function to get the nearest city using reverse geocoding
+ */
 async function getNearestCity(lat, lon) {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
     const response = await fetch(url);
     const data = await response.json();
+
+    // Extract the city name
     const address = data.address;
     const cityName = address.city || address.town || address.village || "Unknown";
     return { name: cityName, lat: parseFloat(data.lat), lon: parseFloat(data.lon) };
 }
 
+/**
+ * Function to initialize the map and add markers
+ */
 function initializeMap(city) {
+    // Create the map centered on the city
     const map = L.map('map').setView([city.lat, city.lon], 12);
 
+    // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
+    // Add marker for the city center
     L.marker([city.lat, city.lon])
         .addTo(map)
         .bindPopup(`<b>${city.name}</b><br>City Center`)
         .openPopup();
 
+    // Define top attractions for the city
     const attractions = {
         "New York": [
             { name: "Statue of Liberty", lat: 40.6892, lon: -74.0445 },
@@ -47,18 +63,23 @@ function initializeMap(city) {
         ]
     };
 
+    // Get attractions for the detected city
     const places = attractions[city.name] || [];
+
+    // Calculate distances and add markers for each attraction
     places.forEach(place => {
         place.distance = haversineDistance(city.lat, city.lon, place.lat, place.lon);
-    });
 
-    places.forEach(place => {
+        // Add marker for the attraction
         L.marker([place.lat, place.lon])
             .addTo(map)
             .bindPopup(`${place.name}<br>${place.distance.toFixed(2)} miles from ${city.name}`);
     });
 }
 
+/**
+ * Function to calculate the distance between two GPS coordinates using the Haversine formula
+ */
 function haversineDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; // Earth radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
