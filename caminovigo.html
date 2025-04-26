@@ -1,5 +1,5 @@
 // Initialize the map
-const map = L.map('map').setView([42.2467, -8.7225], 10); // Centered between Vigo and Santiago
+const map = L.map('map').setView([42.2429, -8.7187], 10); // Centered between Vigo and Santiago
 
 // Add OpenStreetMap tile layer
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -7,23 +7,69 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-// Define railway stations along the Camino
-const railwayStations = [
-  { name: "Vigo Guixar", coords: [42.2309, -8.7167] },
-  { name: "Redondela", coords: [42.2523, -8.6789] },
-  { name: "Pontevedra", coords: [42.4314, -8.6475] },
-  { name: "Caldas de Reis", coords: [42.6127, -8.5878] },
-  { name: "Padrón", coords: [42.7268, -8.6854] },
-  { name: "Santiago de Compostela", coords: [42.8809, -8.5447] }
+// Define the bounding box for the Camino route (Vigo to Santiago)
+const caminoBounds = [
+  [42.2328, -8.7244], // Vigo
+  [42.8806, -8.5452]  // Santiago de Compostela
 ];
 
-// Add markers for each station
-railwayStations.forEach(station => {
-  const marker = L.marker(station.coords).addTo(map);
-  marker.bindPopup(`<b>${station.name}</b>`); // Popup with station name
-});
+// Fetch railway stations using Overpass API
+const overpassUrl = 'https://overpass-api.de/api/interpreter';
+const overpassQuery = `
+  [out:json];
+  (
+    node["railway"="station"](42.2328,-8.7244,42.8806,-8.5452);
+  );
+  out center;
+`;
 
-// Fit map bounds to include all markers
-const stationCoords = railwayStations.map(station => station.coords);
-const bounds = L.latLngBounds(stationCoords);
-map.fitBounds(bounds);
+fetch(overpassUrl, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: `data=${encodeURIComponent(overpassQuery)}`
+})
+  .then(response => response.json())
+  .then(data => {
+    const stations = data.elements;
+
+    stations.forEach(station => {
+      const lat = station.lat || station.center.lat;
+      const lon = station.lon || station.center.lon;
+      const name = station.tags.name || 'Unnamed Station';
+
+      // Add marker for each station
+      const marker = L.marker([lat, lon]).addTo(map);
+
+      // Fetch real-time arrival times (mock API example)
+      fetch(`https://api.example.com/train-arrivals?station=${name}`)
+        .then(response => response.json())
+        .then(arrivals => {
+          const arrivalTimes = arrivals.length > 0 
+            ? arrivals.map(a => `${a.train} arrives at ${a.time}`).join('<br>')
+            : 'No arrivals scheduled';
+
+          // Bind popup with station details and arrival times
+          marker.bindPopup(`
+            <div class="station-popup">
+              <strong>${name}</strong><br>
+              ${arrivalTimes}
+            </div>
+          `);
+        })
+        .catch(error => {
+          console.error('Error fetching arrival times:', error);
+          marker.bindPopup(`
+            <div class="station-popup">
+              <strong>${name}</strong><br>
+              Real-time data unavailable
+            </div>
+          `);
+        });
+    });
+  })
+  .catch(error => {
+    console.error('Error fetching station data:', error);
+  });
+
+// Fit map to the Camino bounds
+map.fitBounds(caminoBounds);
