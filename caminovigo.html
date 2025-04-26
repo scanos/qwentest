@@ -3,85 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Camino Map</title>
+  <title>Camino Map - Vigo to Santiago de Compostela</title>
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""/>
   <style>
-    /* General styles */
+    /* Make the map responsive */
     body {
       margin: 0;
+      padding: 0;
       font-family: Arial, sans-serif;
     }
-
-    /* Map container */
     #map {
       width: 100%;
       height: 100vh; /* Full viewport height */
     }
-
-    /* Responsive title */
-    h1 {
-      text-align: center;
-      margin: 10px 0;
-      font-size: 1.5rem;
-    }
-
-    /* Marker popup styles */
-    .station-popup {
-      font-weight: bold;
-      color: #0078ff;
-    }
-
-    .bus-stop-popup {
-      font-weight: bold;
-      color: #ff5722;
+    @media (max-width: 768px) {
+      #map {
+        height: 80vh; /* Adjust height for smaller screens */
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Camino Map: Railway Stations and Bus Stops</h1>
+  <h1 style="text-align: center;">Camino Map - Vigo to Santiago de Compostela</h1>
   <div id="map"></div>
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
   <script>
     // Initialize the map
-    const map = L.map('map').setView([42.2463, -8.7127], 10); // Centered between Vigo and Santiago
+    const map = L.map('map').setView([42.2467, -8.7208], 10); // Centered between Vigo and Santiago
 
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
+      maxZoom: 18,
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // Define railway stations and bus stops along the Camino
-    const railwayStations = [
-      { name: "Vigo-Guixar", lat: 42.2345, lng: -8.7212 },
-      { name: "Ponteareas", lat: 42.3523, lng: -8.5345 },
-      { name: "Caldas de Reis", lat: 42.6074, lng: -8.6521 },
-      { name: "Santiago de Compostela", lat: 42.8806, lng: -8.5448 }
-    ];
+    // Define coordinates for Vigo and Santiago de Compostela
+    const vigo = [42.2328, -8.7225];
+    const santiago = [42.8809, -8.5445];
 
+    // Draw a line between Vigo and Santiago
+    const caminoRoute = L.polyline([vigo, santiago], {
+      color: 'blue',
+      weight: 3,
+      opacity: 0.7
+    }).addTo(map);
+    caminoRoute.bindPopup("Camino Route: Vigo to Santiago de Compostela");
+
+    // Add markers for nearby bus stops
     const busStops = [
-      { name: "Vigo Bus Station", lat: 42.2411, lng: -8.7139 },
-      { name: "Redondela", lat: 42.3181, lng: -8.6215 },
-      { name: "Padron", lat: 42.6618, lng: -8.6523 },
-      { name: "Santiago Bus Station", lat: 42.8811, lng: -8.5451 }
+      { coords: [42.2350, -8.7150], name: "Vigo Bus Station" },
+      { coords: [42.8780, -8.5400], name: "Santiago Bus Station" },
+      { coords: [42.5000, -8.6300], name: "Pontevedra Bus Stop" }
     ];
 
-    // Add markers for railway stations
-    railwayStations.forEach(station => {
-      L.marker([station.lat, station.lng])
-        .addTo(map)
-        .bindPopup(`<div class="station-popup">Railway Station: ${station.name}</div>`);
+    busStops.forEach(stop => {
+      L.marker(stop.coords, {
+        icon: L.icon({
+          iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34]
+        })
+      }).addTo(map).bindPopup(`Bus Stop: ${stop.name}`);
     });
 
-    // Add markers for bus stops
-    busStops.forEach(stop => {
-      L.marker([stop.lat, stop.lng], { icon: L.icon({ iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png' }) })
-        .addTo(map)
-        .bindPopup(`<div class="bus-stop-popup">Bus Stop: ${stop.name}</div>`);
+    // Add markers for nearby railway stations
+    const railwayStations = [
+      { coords: [42.2300, -8.7200], name: "Vigo Railway Station" },
+      { coords: [42.8820, -8.5450], name: "Santiago Railway Station" },
+      { coords: [42.4900, -8.6350], name: "Pontevedra Railway Station" }
+    ];
+
+    railwayStations.forEach(station => {
+      L.marker(station.coords, {
+        icon: L.icon({
+          iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34]
+        })
+      }).addTo(map).bindPopup(`Railway Station: ${station.name}`);
     });
+
+    // Fit the map to show all markers and the route
+    const bounds = L.latLngBounds([...busStops.map(stop => stop.coords), ...railwayStations.map(station => station.coords), vigo, santiago]);
+    map.fitBounds(bounds);
   </script>
 </body>
 </html>
