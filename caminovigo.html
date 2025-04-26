@@ -1,0 +1,29 @@
+// Initialize the map
+const map = L.map('map').setView([42.2467, -8.7225], 10); // Centered between Vigo and Santiago
+
+// Add OpenStreetMap tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Define railway stations along the Camino
+const railwayStations = [
+  { name: "Vigo Guixar", coords: [42.2309, -8.7167] },
+  { name: "Redondela", coords: [42.2523, -8.6789] },
+  { name: "Pontevedra", coords: [42.4314, -8.6475] },
+  { name: "Caldas de Reis", coords: [42.6127, -8.5878] },
+  { name: "Padrón", coords: [42.7268, -8.6854] },
+  { name: "Santiago de Compostela", coords: [42.8809, -8.5447] }
+];
+
+// Add markers for each station
+railwayStations.forEach(station => {
+  const marker = L.marker(station.coords).addTo(map);
+  marker.bindPopup(`<b>${station.name}</b>`); // Popup with station name
+});
+
+// Fit map bounds to include all markers
+const stationCoords = railwayStations.map(station => station.coords);
+const bounds = L.latLngBounds(stationCoords);
+map.fitBounds(bounds);
