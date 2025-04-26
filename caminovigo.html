@@ -1,75 +1,87 @@
-// Initialize the map
-const map = L.map('map').setView([42.2429, -8.7187], 10); // Centered between Vigo and Santiago
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camino Map</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    /* General styles */
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
 
-// Add OpenStreetMap tile layer
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 18,
-  attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+    /* Map container */
+    #map {
+      width: 100%;
+      height: 100vh; /* Full viewport height */
+    }
 
-// Define the bounding box for the Camino route (Vigo to Santiago)
-const caminoBounds = [
-  [42.2328, -8.7244], // Vigo
-  [42.8806, -8.5452]  // Santiago de Compostela
-];
+    /* Responsive title */
+    h1 {
+      text-align: center;
+      margin: 10px 0;
+      font-size: 1.5rem;
+    }
 
-// Fetch railway stations using Overpass API
-const overpassUrl = 'https://overpass-api.de/api/interpreter';
-const overpassQuery = `
-  [out:json];
-  (
-    node["railway"="station"](42.2328,-8.7244,42.8806,-8.5452);
-  );
-  out center;
-`;
+    /* Marker popup styles */
+    .station-popup {
+      font-weight: bold;
+      color: #0078ff;
+    }
 
-fetch(overpassUrl, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: `data=${encodeURIComponent(overpassQuery)}`
-})
-  .then(response => response.json())
-  .then(data => {
-    const stations = data.elements;
+    .bus-stop-popup {
+      font-weight: bold;
+      color: #ff5722;
+    }
+  </style>
+</head>
+<body>
+  <h1>Camino Map: Railway Stations and Bus Stops</h1>
+  <div id="map"></div>
 
-    stations.forEach(station => {
-      const lat = station.lat || station.center.lat;
-      const lon = station.lon || station.center.lon;
-      const name = station.tags.name || 'Unnamed Station';
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize the map
+    const map = L.map('map').setView([42.2463, -8.7127], 10); // Centered between Vigo and Santiago
 
-      // Add marker for each station
-      const marker = L.marker([lat, lon]).addTo(map);
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-      // Fetch real-time arrival times (mock API example)
-      fetch(`https://api.example.com/train-arrivals?station=${name}`)
-        .then(response => response.json())
-        .then(arrivals => {
-          const arrivalTimes = arrivals.length > 0 
-            ? arrivals.map(a => `${a.train} arrives at ${a.time}`).join('<br>')
-            : 'No arrivals scheduled';
+    // Define railway stations and bus stops along the Camino
+    const railwayStations = [
+      { name: "Vigo-Guixar", lat: 42.2345, lng: -8.7212 },
+      { name: "Ponteareas", lat: 42.3523, lng: -8.5345 },
+      { name: "Caldas de Reis", lat: 42.6074, lng: -8.6521 },
+      { name: "Santiago de Compostela", lat: 42.8806, lng: -8.5448 }
+    ];
 
-          // Bind popup with station details and arrival times
-          marker.bindPopup(`
-            <div class="station-popup">
-              <strong>${name}</strong><br>
-              ${arrivalTimes}
-            </div>
-          `);
-        })
-        .catch(error => {
-          console.error('Error fetching arrival times:', error);
-          marker.bindPopup(`
-            <div class="station-popup">
-              <strong>${name}</strong><br>
-              Real-time data unavailable
-            </div>
-          `);
-        });
+    const busStops = [
+      { name: "Vigo Bus Station", lat: 42.2411, lng: -8.7139 },
+      { name: "Redondela", lat: 42.3181, lng: -8.6215 },
+      { name: "Padron", lat: 42.6618, lng: -8.6523 },
+      { name: "Santiago Bus Station", lat: 42.8811, lng: -8.5451 }
+    ];
+
+    // Add markers for railway stations
+    railwayStations.forEach(station => {
+      L.marker([station.lat, station.lng])
+        .addTo(map)
+        .bindPopup(`<div class="station-popup">Railway Station: ${station.name}</div>`);
     });
-  })
-  .catch(error => {
-    console.error('Error fetching station data:', error);
-  });
 
-// Fit map to the Camino bounds
-map.fitBounds(caminoBounds);
+    // Add markers for bus stops
+    busStops.forEach(stop => {
+      L.marker([stop.lat, stop.lng], { icon: L.icon({ iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png' }) })
+        .addTo(map)
+        .bindPopup(`<div class="bus-stop-popup">Bus Stop: ${stop.name}</div>`);
+    });
+  </script>
+</body>
+</html>
