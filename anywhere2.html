@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>City & Attractions Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Haversine formula to calculate distance between two coordinates (in miles)
+    function haversineDistance(coords1, coords2) {
+      const R = 3958.8; // Earth radius in miles
+      const dLat = (coords2[0] - coords1[0]) * Math.PI / 180;
+      const dLon = (coords2[1] - coords1[1]) * Math.PI / 180;
+      const lat1 = coords1[0] * Math.PI / 180;
+      const lat2 = coords2[0] * Math.PI / 180;
+
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    const map = L.map('map').setView([0, 0], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLon = position.coords.longitude;
+
+          // Step 1: Reverse geocode to get city name
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLat}&lon=${userLon}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = data.address;
+              const city = address.city || address.town || address.village || 'Unknown';
+              const country = address.country;
+
+              // Step 2: Forward geocode to get city center
+              return fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', ' + country)}`);
+            })
+            .then(res => res.json())
+            .then(cityData => {
+              if (!cityData.length) throw new Error('City not found');
+
+              const cityLat = parseFloat(cityData[0].lat);
+              const cityLon = parseFloat(cityData[0].lon);
+              const cityName = cityData[0].display_name.split(',')[0];
+
+              // Step 3: Show city center on map
+              L.marker([cityLat, cityLon], {
+                icon: L.icon({
+                  iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png'
+                })
+              }).addTo(map)
+                .bindPopup(`<strong>${cityName}</strong>`)
+                .openPopup();
+
+              // Step 4: Query Overpass API for attractions
+              return fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `
+                  [out:json][timeout:25];
+                  node["tourism"~"attraction|museum|zoo|theme_park"](around:10000,${cityLat},${cityLon});
+                  node["amenity"~"park|monument|viewpoint"](around:10000,${cityLat},${cityLon});
+                  way["tourism"~"attraction|museum|zoo|theme_park"](around:10000,${cityLat},${cityLon});
+                  relation["tourism"~"attraction|museum|zoo|theme_park"](around:10000,${cityLat},${cityLon});
+                  out center;
+                `
+              }).then(res => res.json())
+                .then(overpassData => ({ overpassData, cityLat, cityLon, cityName }));
+            })
+            .then(({ overpassData, cityLat, cityLon, cityName }) => {
+              let places = [];
+
+              overpassData.elements.forEach(el => {
+                if (
+                  (el.tags.amenity && ['pub', 'hotel'].includes(el.tags.amenity)) ||
+                  (el.tags.tourism === 'hotel')
+                ) return;
+
+                let lat, lon;
+                if (el.type === 'node') {
+                  lat = el.lat;
+                  lon = el.lon;
+                } else {
+                  lat = el.center.lat;
+                  lon = el.center.lon;
+                }
+
+                const name = el.tags.name || 'Unnamed';
+
+                places.push({
+                  name,
+                  lat,
+                  lon,
+                  distance: haversineDistance([cityLat, cityLon], [lat, lon])
+                });
+              });
+
+              // Sort by distance and limit to top 8
+              places.sort((a, b) => a.distance - b.distance);
+              places = places.slice(0, 8);
+
+              // Add attraction markers
+              places.forEach(place => {
+                L.marker([place.lat, place.lon])
+                  .addTo(map)
+                  .bindPopup(`${place.name}<br>${place.distance.toFixed(2)} miles from ${cityName}`);
+              });
+
+              map.setView([cityLat, cityLon], 13);
+            })
+            .catch(err => {
+              console.error('Error:', err);
+              alert('An error occurred while fetching location or attractions data.');
+            });
+        },
+        () => {
+          alert('Geolocation access denied. Please allow geolocation for this site.');
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by your browser.');
+    }
+  </script>
+</body>
+</html>
