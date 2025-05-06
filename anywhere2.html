@@ -1,135 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>City Attractions Map</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <style>
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>City Attractions Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
 </head>
 <body>
-    <div id="map"></div>
+  <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Haversine formula for distance calculation
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 3958.8; // Earth radius in miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = 
-                Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * 
-                Math.cos(lat2 * Math.PI / 180) * 
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 3958.8; // Radius of the Earth in miles
+      const rlat1 = lat1 * Math.PI / 180;
+      const rlat2 = lat2 * Math.PI / 180;
+      const deltaLat = (lat2 - lat1) * Math.PI / 180;
+      const deltaLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(rlat1) * Math.cos(rlat2) *
+                Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
 
-        // Reverse geocode to get city information
-        async function reverseGeocode(lat, lon) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
-            const response = await fetch(url, {
-                headers: { 'Accept-Language': 'en-US' }
+    function initMap(centerLat, centerLon, city, attractions) {
+      const map = L.map('map').setView([centerLat, centerLon], 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // City center marker
+      L.marker([centerLat, centerLon])
+        .addTo(map)
+        .bindPopup(`<strong>${city}</strong> Center`)
+        .openPopup();
+
+      // Attraction markers
+      attractions.forEach(attraction => {
+        L.marker([attraction.lat, attraction.lon])
+          .addTo(map)
+          .bindPopup(`<strong>${attraction.name}</strong><br>${attraction.distance.toFixed(2)} miles from ${city}`);
+      });
+    }
+
+    function fetchCityCenter(cityName, country, callback) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName + ', ' + country)}&countrycodes=${country}&limit=1`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data[0]) {
+            callback({
+              lat: parseFloat(data[0].lat),
+              lon: parseFloat(data[0].lon)
             });
-            const data = await response.json();
-            
-            return {
-                city: data.address.city || data.address.town || data.address.village || 'Unknown',
-                cityLat: parseFloat(data.lat),
-                cityLon: parseFloat(data.lon)
-            };
-        }
+          } else {
+            console.error("City center not found");
+          }
+        })
+        .catch(err => console.error("Error fetching city center:", err));
+    }
 
-        // Get top attractions from OpenStreetMap
-        async function getAttractions(lat, lon) {
-            const radius = 10000; // 10 km
-            const query = `[out:json][timeout:25];node["tourism"="attraction"](around:${radius},${lat},${lon});out;`;
-            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                // Process attractions and filter out hotels
-                return data.elements
-                    .filter(el => el.tags?.name && !el.tags.name.toLowerCase().includes('hotel'))
-                    .map(el => ({
-                        name: el.tags.name,
-                        lat: el.lat,
-                        lon: el.lon
-                    }))
-                    .slice(0, 8);
-            } catch (error) {
-                console.error('Error fetching attractions:', error);
-                return [];
+    function fetchAttractions(cityName, country, cityCenter, callback) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=tourist+attractions+in+${encodeURIComponent(cityName)}&countrycodes=${country}&limit=20`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          const attractions = [];
+
+          data.forEach(item => {
+            if (!item.display_name.toLowerCase().includes('hotel') && attractions.length < 8) {
+              const lat = parseFloat(item.lat);
+              const lon = parseFloat(item.lon);
+              const distance = calculateDistance(cityCenter.lat, cityCenter.lon, lat, lon);
+
+              attractions.push({
+                name: item.display_name,
+                lat: lat,
+                lon: lon,
+                distance: distance
+              });
             }
-        }
+          });
 
-        // Initialize map with user's location
-        async function initMap(position) {
-            const { latitude: lat, longitude: lon } = position.coords;
-            
-            // Create map
-            const map = L.map('map').setView([lat, lon], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+          callback(attractions);
+        })
+        .catch(err => console.error("Error fetching attractions:", err));
+    }
 
-            // Add user marker
-            L.marker([lat, lon]).addTo(map)
-                .bindPopup('Your Location')
-                .openPopup();
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const userLat = position.coords.latitude;
+        const userLon = position.coords.longitude;
 
-            // Get city information
-            try {
-                const cityData = await reverseGeocode(lat, lon);
-                const { city, cityLat, cityLon } = cityData;
-                
-                // Add city center marker
-                const cityMarker = L.marker([cityLat, cityLon]).addTo(map)
-                    .bindPopup(`<strong>${city}</strong>`)
-                    .openPopup();
+        const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLat}&lon=${userLon}&zoom=10&addressdetails=1`;
 
-                // Get attractions
-                const attractions = await getAttractions(cityLat, cityLon);
-                
-                // Add attraction markers and calculate distances
-                attractions.forEach(attraction => {
-                    const distance = getDistance(
-                        cityLat, cityLon,
-                        attraction.lat, attraction.lon
-                    );
-                    
-                    L.marker([attraction.lat, attraction.lon]).addTo(map)
-                        .bindPopup(`${attraction.name}<br>${distance.toFixed(2)} miles from ${city}`);
-                });
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to retrieve location data');
+        fetch(reverseUrl)
+          .then(res => res.json())
+          .then(reverseData => {
+            const city = reverseData.address.city || reverseData.address.town || reverseData.address.village;
+            const country = reverseData.address.country_code;
+
+            if (!city) {
+              alert("Could not determine city from your location.");
+              return;
             }
-        }
 
-        // Handle geolocation errors
-        function handleError(error) {
-            alert(`Error getting location: ${error.message}`);
-        }
-
-        // Start the process
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(initMap, handleError, {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            });
-        } else {
-            alert('Geolocation is not supported by this browser');
-        }
-    </script>
-</body>
-</html>
+            fetchCityCenter(city, country, cityCenter => {
+              fetchAttractions(city, country, cityCenter, attractions => {
+                initMap(cityCenter.lat, cityCenter.lon
