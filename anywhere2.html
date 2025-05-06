@@ -25,11 +25,11 @@
   <label for="category">Select Category:</label>
   <select id="category">
     <option value="">-- Select --</option>
-    <option value="atractions">Attractions</option>
     <option value="pubs">Pubs</option>
-    <option value="hotels">Hotels</option>
     <option value="shops">Shops</option>
-    <option value="sites">Sites</option>
+    <option value="hotels">Hotels</option>
+    <option value="shops_duplicate">Shops (Alt)</option>
+    <option value="tourism">Tourism</option>
   </select>
 </div>
 
@@ -96,20 +96,18 @@ navigator.geolocation.getCurrentPosition(async (position) => {
 
     let tourismTag = '';
     switch(selected) {
-      case 'atractions':
-        tourismTag = 'attraction';
-        break;
       case 'pubs':
         tourismTag = 'pub';
+        break;
+      case 'shops':
+      case 'shops_duplicate':
+        tourismTag = 'shop';
         break;
       case 'hotels':
         tourismTag = 'hotel';
         break;
-      case 'shops':
-        tourismTag = 'shop';
-        break;
-      case 'sites':
-        tourismTag = 'historic_site';
+      case 'tourism':
+        tourismTag = 'attraction';
         break;
       default:
         tourismTag = '';
