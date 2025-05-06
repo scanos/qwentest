@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>City POI Finder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    body { font-family: Arial; margin: 0; }
+    body { margin: 0; font-family: sans-serif; }
     #map { height: 90vh; width: 100%; }
     #controls {
       padding: 10px;
-      background-color: #f0f0f0;
+      background: #f5f5f5;
       border-bottom: 1px solid #ccc;
     }
     select {
-      padding: 6px;
+      padding: 8px;
       font-size: 16px;
     }
   </style>
@@ -22,9 +22,9 @@
 <body>
 
 <div id="controls">
-  <label for="category">Choose a category: </label>
+  <label for="category">Select Category:</label>
   <select id="category">
-    <option value="">-- Select --</option>
+    <option value="">-- Choose --</option>
     <option value="tourist_attraction">Visitor Attractions</option>
     <option value="pub">Pubs</option>
     <option value="hotel">Hotels</option>
@@ -35,15 +35,17 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  let map, userMarker, cityMarker, cityCoords, cityName = '', $places = [], $dropdown;
+  let map, cityMarker, $city = '', cityCoords = null;
+  let $dropdown = '';
+  let $places = [];
 
-  const categoryMapping = {
-    'tourist_attraction': 'Visitor Attraction',
-    'pub': 'Pub',
-    'hotel': 'Hotel'
+  const categoryLabels = {
+    tourist_attraction: "Visitor Attraction",
+    pub: "Pub",
+    hotel: "Hotel"
   };
 
-  // Initialize Map
+  // Step 1: Initialize Map
   function initMap(lat, lon) {
     map = L.map('map').setView([lat, lon], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -51,7 +53,7 @@
     }).addTo(map);
   }
 
-  // Get User Location
+  // Step 2: Get User Location
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(position => {
       const lat = position.coords.latitude;
@@ -63,35 +65,41 @@
     alert("Geolocation not supported.");
   }
 
-  // Reverse Geocode to find city
+  // Step 3: Reverse Geocode to get city name and coords
   function reverseGeocode(lat, lon) {
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`)
       .then(res => res.json())
       .then(data => {
         const address = data.address;
-        cityName = address.city || address.town || address.village || 'Unknown';
-        cityCoords = { lat: parseFloat(address.city_district ? address.neighbourhood : lat),
-                       lon: parseFloat(lon) };
-        showCityMarker(cityCoords.lat, cityCoords.lon, cityName);
-        document.getElementById('category').addEventListener('change', handleCategoryChange);
+        $city = address.city || address.town || address.village || 'Unknown';
+        cityCoords = {
+          lat: parseFloat(address.city_district ? address.neighbourhood : lat),
+          lon: parseFloat(lon)
+        };
+        showCityMarker(cityCoords.lat, cityCoords.lon, $city);
+        setupDropdown();
       });
   }
 
-  // Show City Marker
+  // Step 4: Show City Marker
   function showCityMarker(lat, lon, name) {
     if (cityMarker) cityMarker.removeFrom(map);
     cityMarker = L.marker([lat, lon]).addTo(map)
       .bindPopup(`<b>${name}</b><br>City Center`).openPopup();
   }
 
-  // Handle Dropdown Change
-  function handleCategoryChange(e) {
-    $dropdown = e.target.value;
-    if (!$dropdown || !cityCoords) return;
-    fetchPOIData($dropdown);
+  // Step 5: Setup Dropdown Handler
+  function setupDropdown() {
+    const dropdown = document.getElementById('category');
+    dropdown.addEventListener('change', function () {
+      $dropdown = this.value;
+      if ($dropdown && cityCoords) {
+        fetchPOIData($dropdown);
+      }
+    });
   }
 
-  // Fetch Points of Interest using Overpass API
+  // Step 6: Fetch Points of Interest via Overpass API
   function fetchPOIData(category) {
     const { lat, lon } = cityCoords;
     const radius = 10000; // 10 km
@@ -106,19 +114,23 @@
     fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
       .then(res => res.json())
       .then(data => {
-        $places = data.elements.map(el => ({
+        $places = data.elements.slice(0, 8).map(el => ({
           name: el.tags.name || 'Unnamed',
           lat: el.lat,
           lon: el.lon,
-          type: categoryMapping[category],
+          type: categoryLabels[category],
           distance: calculateDistance(lat, lon, el.lat, el.lon)
-        })).sort((a, b) => a.distance - b.distance).slice(0, 8);
+        }));
+
+        // Sort by distance
+        $places.sort((a, b) => a.distance - b.distance);
 
         updateMarkers();
-      });
+      })
+      .catch(err => console.error("Overpass API Error:", err));
   }
 
-  // Calculate Distance in Miles
+  // Step 7: Calculate Distance in Miles
   function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 3958.8; // Radius of Earth in miles
     const rlat1 = lat1 * Math.PI / 180;
@@ -126,15 +138,16 @@
     const dlat = (lat2 - lat1) * Math.PI / 180;
     const dlon = (lon2 - lon1) * Math.PI / 180;
     const a =
-      Math.sin(dlat/2)**2 +
+      Math.sin(dlat / 2) ** 2 +
       Math.cos(rlat1) * Math.cos(rlat2) *
-      Math.sin(dlon/2)**2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      Math.sin(dlon / 2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
 
-  // Update Map Markers
+  // Step 8: Update Map Markers
   function updateMarkers() {
+    // Remove existing markers except city
     map.eachLayer(layer => {
       if (layer instanceof L.Marker && layer !== cityMarker) {
         map.removeLayer(layer);
@@ -144,8 +157,8 @@
     $places.forEach(place => {
       const marker = L.marker([place.lat, place.lon]).addTo(map);
       marker.bindPopup(`
-        <b>${place.name}</b><br>
-        Type: ${place.type}<br>
+        <strong>${place.name}</strong><br/>
+        Type: ${place.type}<br/>
         Distance: ${place.distance.toFixed(2)} miles
       `);
     });
