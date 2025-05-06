@@ -2,30 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>City POI Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>City Map Finder</title>
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
   <style>
-    body { margin: 0; font-family: sans-serif; }
-    #map { height: 90vh; width: 100%; }
-    #controls {
-      padding: 10px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #ccc;
+    #map {
+      height: 100vh;
+      width: 100%;
     }
-    select {
-      padding: 8px;
-      font-size: 16px;
+    #dropdown {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 5px;
+      border-radius: 4px;
     }
   </style>
 </head>
 <body>
 
-<div id="controls">
+<div id="dropdown">
   <label for="category">Select Category:</label>
   <select id="category">
-    <option value="">-- Choose --</option>
-    <option value="tourist_attraction">Visitor Attractions</option>
+    <option value="">-- Select --</option>
+    <option value="tourist_attraction">Attractions</option>
     <option value="pub">Pubs</option>
     <option value="hotel">Hotels</option>
   </select>
@@ -33,136 +38,130 @@
 
 <div id="map"></div>
 
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-  let map, cityMarker, $city = '', cityCoords = null;
-  let $dropdown = '';
-  let $places = [];
+  let map, userMarker, cityCenterMarker;
+  let city = '';
+  let cityLat = 0, cityLon = 0;
+  let places = [];
 
-  const categoryLabels = {
-    tourist_attraction: "Visitor Attraction",
-    pub: "Pub",
-    hotel: "Hotel"
-  };
-
-  // Step 1: Initialize Map
+  // Initialize map
   function initMap(lat, lon) {
     map = L.map('map').setView([lat, lon], 13);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+
+    userMarker = L.marker([lat, lon]).addTo(map)
+      .bindPopup("You are here")
+      .openPopup();
   }
 
-  // Step 2: Get User Location
+  // Get user location
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(position => {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
+
       initMap(lat, lon);
       reverseGeocode(lat, lon);
-    }, () => alert("Unable to retrieve your location."));
+    }, () => {
+      alert("Unable to retrieve your location.");
+    });
   } else {
-    alert("Geolocation not supported.");
+    alert("Geolocation not supported by your browser.");
   }
 
-  // Step 3: Reverse Geocode to get city name and coords
+  // Reverse geocode to get city
   function reverseGeocode(lat, lon) {
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`)
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
+
+    fetch(url, {
+      headers: { 'Accept-Language': 'en-US' }
+    })
       .then(res => res.json())
       .then(data => {
-        const address = data.address;
-        $city = address.city || address.town || address.village || 'Unknown';
-        cityCoords = {
-          lat: parseFloat(address.city_district ? address.neighbourhood : lat),
-          lon: parseFloat(lon)
-        };
-        showCityMarker(cityCoords.lat, cityCoords.lon, $city);
-        setupDropdown();
+        city = data.address.city || data.address.town || data.address.village;
+        cityLat = lat;
+        cityLon = lon;
+
+        if (city) {
+          document.getElementById('category').disabled = false;
+          cityCenterMarker = L.marker([lat, lon], { color: 'red' })
+            .addTo(map)
+            .bindPopup(`<b>${city}</b>`)
+            .openPopup();
+        }
       });
   }
 
-  // Step 4: Show City Marker
-  function showCityMarker(lat, lon, name) {
-    if (cityMarker) cityMarker.removeFrom(map);
-    cityMarker = L.marker([lat, lon]).addTo(map)
-      .bindPopup(`<b>${name}</b><br>City Center`).openPopup();
-  }
+  // Handle dropdown change
+  document.getElementById('category').addEventListener('change', function() {
+    const category = this.value;
+    if (!category || !city) return;
 
-  // Step 5: Setup Dropdown Handler
-  function setupDropdown() {
-    const dropdown = document.getElementById('category');
-    dropdown.addEventListener('change', function () {
-      $dropdown = this.value;
-      if ($dropdown && cityCoords) {
-        fetchPOIData($dropdown);
-      }
-    });
-  }
+    searchPlaces(category);
+  });
 
-  // Step 6: Fetch Points of Interest via Overpass API
-  function fetchPOIData(category) {
-    const { lat, lon } = cityCoords;
-    const radius = 10000; // 10 km
-    const query = `
-      [out:json][timeout:25];
-      node["tourism"="${category}"](around:${radius},${lat},${lon});
-      out body;
-      >;
-      out skel qt;
-    `;
+  // Search for places in the city
+  function searchPlaces(category) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${category}+in+${city}&limit=8`;
 
-    fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
+    fetch(url)
       .then(res => res.json())
-      .then(data => {
-        $places = data.elements.slice(0, 8).map(el => ({
-          name: el.tags.name || 'Unnamed',
-          lat: el.lat,
-          lon: el.lon,
-          type: categoryLabels[category],
-          distance: calculateDistance(lat, lon, el.lat, el.lon)
-        }));
-
-        // Sort by distance
-        $places.sort((a, b) => a.distance - b.distance);
+      .then(results => {
+        places = results.map(place => {
+          const lat = parseFloat(place.lat);
+          const lon = parseFloat(place.lon);
+          const distance = getDistanceFromLatLonInMiles(cityLat, cityLon, lat, lon);
+          return {
+            name: place.display_name,
+            lat: lat,
+            lon: lon,
+            distance: distance.toFixed(1)
+          };
+        });
 
         updateMarkers();
-      })
-      .catch(err => console.error("Overpass API Error:", err));
+
+      });
   }
 
-  // Step 7: Calculate Distance in Miles
-  function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 3958.8; // Radius of Earth in miles
-    const rlat1 = lat1 * Math.PI / 180;
-    const rlat2 = lat2 * Math.PI / 180;
-    const dlat = (lat2 - lat1) * Math.PI / 180;
-    const dlon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dlat / 2) ** 2 +
-      Math.cos(rlat1) * Math.cos(rlat2) *
-      Math.sin(dlon / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  // Step 8: Update Map Markers
+  // Update map markers
   function updateMarkers() {
-    // Remove existing markers except city
     map.eachLayer(layer => {
-      if (layer instanceof L.Marker && layer !== cityMarker) {
+      if (layer instanceof L.Marker && layer !== userMarker && layer !== cityCenterMarker) {
         map.removeLayer(layer);
       }
     });
 
-    $places.forEach(place => {
-      const marker = L.marker([place.lat, place.lon]).addTo(map);
-      marker.bindPopup(`
-        <strong>${place.name}</strong><br/>
-        Type: ${place.type}<br/>
-        Distance: ${place.distance.toFixed(2)} miles
-      `);
+    places.forEach(place => {
+      const marker = L.marker([place.lat, place.lon])
+        .addTo(map)
+        .bindPopup(`<b>${place.name}</b><br>${place.distance} miles from city center`);
     });
   }
+
+  // Distance calculation (miles)
+  function getDistanceFromLatLonInMiles(lat1, lon1, lat2, lon2) {
+    const R = 3958.8; // Radius of Earth in miles
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function deg2rad(deg) {
+    return deg * (Math.PI / 180);
+  }
 </script>
+
 </body>
 </html>
