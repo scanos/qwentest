@@ -25,10 +25,10 @@
   <label for="category">Select Category:</label>
   <select id="category">
     <option value="">-- Select --</option>
-    <option value="pubs">Pubs</option>
-    <option value="shops">Shops</option>
-    <option value="hotels">Hotels</option>
-    <option value="shops_duplicate">Shops (Alt)</option>
+    <option value="pub">Pub</option>
+    <option value="shop">Shop</option>
+    <option value="accommodation">Accommodation</option>
+    <option value="toilet">Toilet</option>
     <option value="tourism">Tourism</option>
   </select>
 </div>
@@ -94,31 +94,41 @@ navigator.geolocation.getCurrentPosition(async (position) => {
     placeMarkers.forEach(m => map.removeLayer(m));
     placeMarkers = [];
 
-    let tourismTag = '';
+    let osmTagKey = '';
+    let osmTagValue = '';
+
     switch(selected) {
-      case 'pubs':
-        tourismTag = 'pub';
+      case 'pub':
+        osmTagKey = 'amenity';
+        osmTagValue = 'pub';
         break;
-      case 'shops':
-      case 'shops_duplicate':
-        tourismTag = 'shop';
+      case 'shop':
+        osmTagKey = 'shop';
+        osmTagValue = 'yes';
         break;
-      case 'hotels':
-        tourismTag = 'hotel';
+      case 'accommodation':
+        osmTagKey = 'tourism';
+        osmTagValue = 'hotel';
+        break;
+      case 'toilet':
+        osmTagKey = 'amenity';
+        osmTagValue = 'toilets';
         break;
       case 'tourism':
-        tourismTag = 'attraction';
+        osmTagKey = 'tourism';
+        osmTagValue = 'attraction';
         break;
       default:
-        tourismTag = '';
+        osmTagKey = '';
+        osmTagValue = '';
     }
 
-    if (!tourismTag) return;
+    if (!osmTagKey || !osmTagValue) return;
 
     // Fetch from Overpass API
     const overpassQuery = `
       [out:json][timeout:25];
-      node["tourism"="${tourismTag}"](around:10000,${cityLat},${cityLon});
+      node["${osmTagKey}"="${osmTagValue}"](around:10000,${cityLat},${cityLon});
       out body;
     `;
 
