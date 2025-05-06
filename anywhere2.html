@@ -1,157 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nearest City & Attractions</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>
-    html, body, #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    #map {
-      width: 100vw;
-      height: 100vh;
-    }
-    .city-icon {
-      background-color: red;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      text-align: center;
-      color: white;
-      font-weight: bold;
-      line-height: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>City Attractions Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
-  <div id="map"></div>
+    <div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async position => {
-            const userLat = position.coords.latitude;
-            const userLon = position.coords.longitude;
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Haversine formula for distance calculation
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Earth radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * 
+                Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
 
+        // Reverse geocode to get city information
+        async function reverseGeocode(lat, lon) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
+            const response = await fetch(url, {
+                headers: { 'Accept-Language': 'en-US' }
+            });
+            const data = await response.json();
+            
+            return {
+                city: data.address.city || data.address.town || data.address.village || 'Unknown',
+                cityLat: parseFloat(data.lat),
+                cityLon: parseFloat(data.lon)
+            };
+        }
+
+        // Get top attractions from OpenStreetMap
+        async function getAttractions(lat, lon) {
+            const radius = 10000; // 10 km
+            const query = `[out:json][timeout:25];node["tourism"="attraction"](around:${radius},${lat},${lon});out;`;
+            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            
             try {
-              const cityData = await reverseGeocode(userLat, userLon);
-              const city = cityData.city;
-              const cityCenterLat = parseFloat(cityData.lat);
-              const cityCenterLon = parseFloat(cityData.lon);
-              const boundingBox = cityData.boundingBox;
-
-              const places = await getTopAttractions(boundingBox, cityCenterLat, cityCenterLon);
-
-              initMap(userLat, userLon, cityCenterLat, cityCenterLon, city, places);
-            } catch (err) {
-              console.error('Error:', err);
-              alert('Failed to retrieve location data.');
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // Process attractions and filter out hotels
+                return data.elements
+                    .filter(el => el.tags?.name && !el.tags.name.toLowerCase().includes('hotel'))
+                    .map(el => ({
+                        name: el.tags.name,
+                        lat: el.lat,
+                        lon: el.lon
+                    }))
+                    .slice(0, 8);
+            } catch (error) {
+                console.error('Error fetching attractions:', error);
+                return [];
             }
-          },
-          err => {
-            console.error('Geolocation error:', err);
-            alert('Unable to get your location.');
-          }
-        );
-      } else {
-        alert('Geolocation is not supported by this browser.');
-      }
-    });
-
-    async function reverseGeocode(lat, lon) {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'MyApp/1.0'
         }
-      });
-      const data = await res.json();
-      const address = data.address;
 
-      let city = address.city || address.town || address.village || 'Unknown';
-      const latRes = data.lat;
-      const lonRes = data.lon;
-      const boundingBox = data.boundingbox;
+        // Initialize map with user's location
+        async function initMap(position) {
+            const { latitude: lat, longitude: lon } = position.coords;
+            
+            // Create map
+            const map = L.map('map').setView([lat, lon], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
 
-      return {
-        city,
-        lat: latRes,
-        lon: lonRes,
-        boundingBox
-      };
-    }
+            // Add user marker
+            L.marker([lat, lon]).addTo(map)
+                .bindPopup('Your Location')
+                .openPopup();
 
-    async function getTopAttractions(boundingBox, cityLat, cityLon) {
-      const [minlat, maxlat, minlon, maxlon] = boundingBox.map(Number);
-      const url = `https://overpass-api.de/api/interpreter?data=[out:json];node["tourism"="attraction"](${minlat},${minlon},${maxlat},${maxlon});out body;`;
+            // Get city information
+            try {
+                const cityData = await reverseGeocode(lat, lon);
+                const { city, cityLat, cityLon } = cityData;
+                
+                // Add city center marker
+                const cityMarker = L.marker([cityLat, cityLon]).addTo(map)
+                    .bindPopup(`<strong>${city}</strong>`)
+                    .openPopup();
 
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'MyApp/1.0'
+                // Get attractions
+                const attractions = await getAttractions(cityLat, cityLon);
+                
+                // Add attraction markers and calculate distances
+                attractions.forEach(attraction => {
+                    const distance = getDistance(
+                        cityLat, cityLon,
+                        attraction.lat, attraction.lon
+                    );
+                    
+                    L.marker([attraction.lat, attraction.lon]).addTo(map)
+                        .bindPopup(`${attraction.name}<br>${distance.toFixed(2)} miles from ${city}`);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to retrieve location data');
+            }
         }
-      });
 
-      const data = await res.json();
-      const filtered = data.elements
-        .filter(el => el.tags?.name && !el.tags.name.toLowerCase().includes('hotel'))
-        .slice(0, 8);
+        // Handle geolocation errors
+        function handleError(error) {
+            alert(`Error getting location: ${error.message}`);
+        }
 
-      return filtered.map(el => {
-        const distance = haversineDistance(cityLat, cityLon, el.lat, el.lon);
-        return {
-          name: el.tags.name,
-          lat: el.lat,
-          lon: el.lon,
-          distance: distance.toFixed(2)
-        };
-      });
-    }
-
-    function haversineDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth radius in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) *
-        Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distanceKm = R * c;
-      return distanceKm * 0.621371; // Convert to miles
-    }
-
-    function initMap(userLat, userLon, cityCenterLat, cityCenterLon, city, places) {
-      const map = L.map('map').setView([userLat, userLon], 13);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      // User location marker
-      L.marker([userLat, userLon]).addTo(map)
-        .bindPopup("Your Location")
-        .openPopup();
-
-      // City center marker
-      L.marker([cityCenterLat, cityCenterLon], {
-        icon: L.divIcon({ className: 'city-icon', html: 'C' })
-      }).addTo(map)
-        .bindPopup(`City Center: ${city}`);
-
-      // Attraction markers
-      places.forEach(place => {
-        const marker = L.marker([place.lat, place.lon]).addTo(map);
-        const popup = `<strong>${place.name}</strong><br>${place.distance} mi from center`;
-        marker.bindPopup(popup);
-      });
-    }
-  </script>
+        // Start the process
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(initMap, handleError, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        } else {
+            alert('Geolocation is not supported by this browser');
+        }
+    </script>
 </body>
 </html>
