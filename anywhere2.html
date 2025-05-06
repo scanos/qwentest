@@ -25,11 +25,11 @@
   <label for="category">Select Category:</label>
   <select id="category">
     <option value="">-- Select --</option>
-    <option value="tourist_attraction">Attractions</option>
-    <option value="pub">Pubs</option>
-    <option value="hotel">Hotels</option>
-    <option value="shop">Shops</option>
-    <option value="historic_site">Sites</option>
+    <option value="atractions">Attractions</option>
+    <option value="pubs">Pubs</option>
+    <option value="hotels">Hotels</option>
+    <option value="shops">Shops</option>
+    <option value="sites">Sites</option>
   </select>
 </div>
 
@@ -94,10 +94,33 @@ navigator.geolocation.getCurrentPosition(async (position) => {
     placeMarkers.forEach(m => map.removeLayer(m));
     placeMarkers = [];
 
+    let tourismTag = '';
+    switch(selected) {
+      case 'atractions':
+        tourismTag = 'attraction';
+        break;
+      case 'pubs':
+        tourismTag = 'pub';
+        break;
+      case 'hotels':
+        tourismTag = 'hotel';
+        break;
+      case 'shops':
+        tourismTag = 'shop';
+        break;
+      case 'sites':
+        tourismTag = 'historic_site';
+        break;
+      default:
+        tourismTag = '';
+    }
+
+    if (!tourismTag) return;
+
     // Fetch from Overpass API
     const overpassQuery = `
       [out:json][timeout:25];
-      node["tourism"="${selected}"](around:10000,${cityLat},${cityLon});
+      node["tourism"="${tourismTag}"](around:10000,${cityLat},${cityLon});
       out body;
     `;
 
