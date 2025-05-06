@@ -1,40 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>City Explorer</title>
-
+  <meta charset="UTF-8">
+  <title>City POI Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-    #map {
-      width: 100%;
-      height: 100vh;
-    }
-    #dropdown {
+    #map { height: 100vh; }
+    .controls {
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 1000;
       background: white;
       padding: 10px;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      font-family: sans-serif;
+      border-radius: 5px;
     }
   </style>
 </head>
 <body>
 
-<div id="dropdown">
-  <label for="category">Choose a category:</label>
+<div class="controls">
+  <label for="category">Select Category:</label>
   <select id="category">
     <option value="">-- Select --</option>
     <option value="tourist_attraction">Attractions</option>
@@ -49,137 +37,96 @@
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
-  let map, userMarker, cityMarker;
-  let $city = '';
-  let cityLat = 0, cityLon = 0;
-  let $places = [];
+// Global variables
+let map;
+let cityMarker;
+let placeMarkers = [];
+let cityLat, cityLon;
+let cityName;
+
+// Function to calculate distance between two coordinates (in miles)
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 3958.8; // Radius of Earth in miles
+  const rlat1 = lat1 * Math.PI / 180;
+  const rlat2 = lat2 * Math.PI / 180;
+  const dlat = (lat2 - lat1) * Math.PI / 180;
+  const dlon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dlat/2) * Math.sin(dlat/2) +
+    Math.cos(rlat1) * Math.cos(rlat2) *
+    Math.sin(dlon/2) * Math.sin(dlon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Reverse geocode to get city name
+async function reverseGeocode(lat, lon) {
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+  const data = await res.json();
+  return data.address.city || data.address.town || data.address.village || "Unknown Location";
+}
+
+// Load map and handle user location
+navigator.geolocation.getCurrentPosition(async (position) => {
+  cityLat = position.coords.latitude;
+  cityLon = position.coords.longitude;
+
+  cityName = await reverseGeocode(cityLat, cityLon);
 
   // Initialize map
-  function initMap(lat, lon) {
-    map = L.map('map').setView([lat, lon], 13);
+  map = L.map('map').setView([cityLat, cityLon], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-
-    userMarker = L.marker([lat, lon]).addTo(map)
-      .bindPopup("You are here")
-      .openPopup();
-  }
-
-  // Get user location
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(position => {
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
-
-      initMap(lat, lon);
-      reverseGeocode(lat, lon);
-    }, () => {
-      alert("Unable to retrieve your location.");
-    });
-  } else {
-    alert("Geolocation not supported by your browser.");
-  }
-
-  // Reverse geocode to get city
-  function reverseGeocode(lat, lon) {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
-
-    fetch(url, {
-      headers: { 'Accept-Language': 'en-US' }
-    })
-      .then(res => res.json())
-      .then(data => {
-        $city = data.address.city || data.address.town || data.address.village;
-        cityLat = lat;
-        cityLon = lon;
-
-        if ($city) {
-          document.getElementById('category').disabled = false;
-          cityMarker = L.marker([lat, lon], { color: 'red' })
-            .addTo(map)
-            .bindPopup(`<b>${$city}</b>`)
-            .openPopup();
-        }
-      });
-  }
+  // Add city marker
+  cityMarker = L.marker([cityLat, cityLon]).addTo(map)
+    .bindPopup(`<b>${cityName}</b><br>Center of city`)
+    .openPopup();
 
   // Handle dropdown change
-  document.getElementById('category').addEventListener('change', function() {
-    const category = this.value;
-    const mapping = {
-      tourist_attraction: "visitor attraction",
-      pub: "pub",
-      hotel: "hotel",
-      shop: "shop",
-      historic_site: "historic site"
-    };
-    const readableName = mapping[category] || category;
+  document.getElementById("category").addEventListener("change", async function () {
+    const selected = this.value;
+    if (!selected) return;
 
-    if (!category || !$city) return;
+    // Clear previous markers
+    placeMarkers.forEach(m => map.removeLayer(m));
+    placeMarkers = [];
 
-    searchPlaces(category, readableName);
+    // Fetch from Overpass API
+    const overpassQuery = `
+      [out:json][timeout:25];
+      node["tourism"="${selected}"](around:10000,${cityLat},${cityLon});
+      out body;
+    `;
+
+    const encodedQuery = encodeURIComponent(overpassQuery);
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodedQuery}`);
+    const data = await res.json();
+
+    let places = [];
+
+    for (const element of data.elements.slice(0, 8)) {
+      const name = element.tags.name || "Unnamed";
+      const lat = element.lat;
+      const lon = element.lon;
+      const distance = getDistance(cityLat, cityLon, lat, lon).toFixed(1);
+      places.push({ name, lat, lon, distance });
+    }
+
+    // Add markers for each place
+    places.forEach(p => {
+      const marker = L.marker([p.lat, p.lon]).addTo(map)
+        .bindPopup(`${p.name}<br><small>${p.distance} mi from ${cityName}</small>`);
+      placeMarkers.push(marker);
+    });
+
+    if (places.length > 0) {
+      map.fitBounds(placeMarkers.map(m => m.getLatLng()));
+    }
   });
-
-  // Search for places in the city
-  function searchPlaces(category, readableName) {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${readableName}+in+${$city}&limit=8`;
-
-    fetch(url)
-      .then(res => res.json())
-      .then(results => {
-        $places = results.map(place => {
-          const lat = parseFloat(place.lat);
-          const lon = parseFloat(place.lon);
-          const distance = getDistanceFromLatLonInMiles(cityLat, cityLon, lat, lon);
-          return {
-            name: place.display_name,
-            lat: lat,
-            lon: lon,
-            distance: distance.toFixed(1)
-          };
-        });
-
-        updateMarkers();
-
-      });
-  }
-
-  // Update map markers
-  function updateMarkers() {
-    map.eachLayer(layer => {
-      if (layer instanceof L.Marker && layer !== userMarker && layer !== cityMarker) {
-        map.removeLayer(layer);
-      }
-    });
-
-    $places.forEach(place => {
-      const marker = L.marker([place.lat, place.lon])
-        .addTo(map)
-        .bindPopup(`<b>${place.name}</b><br>${place.distance} mi from city center`);
-    });
-  }
-
-  // Distance calculation (miles)
-  function getDistanceFromLatLonInMiles(lat1, lon1, lat2, lon2) {
-    const R = 3958.8; // Radius of Earth in miles
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  function deg2rad(deg) {
-    return deg * (Math.PI / 180);
-  }
+});
 </script>
-
 </body>
 </html>
