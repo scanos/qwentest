@@ -1,6 +1,6 @@
 
 
-determine my GPS coordinates ,assign to variable  $mygps, from my web browser and determine the nearest city to my location and assign it to a variable $city. create a marker and label for the centre of $city and a marker for $mygps ( showing distance of $mygps from the the centre of $city ) on a responsive html page on an openstreetmap map.
+determine my GPS coordinates from my web browser and determine the nearest city to my location and assign it to a variable $city and assign my location GPS coordinates to a variable $mygps . create markers and labels for both the centre of $city and for $mygps ( showing the distance of $mygps from the the centre of $city ) on a responsive html page on an openstreetmap map.
 
 using a html select tag create a drop down menu option 1 pub
 option 2 shop
@@ -11,4 +11,4 @@ option 6 bus
 option 7 metro
 once clicked assign the selected option value to $dropdown
 
-Determine the top 10 $dropdown ( for example,if option 1 is selected then determine the top 8 visitor attractions) in $city and assign them to an array $places including their GPS coordinates. Calculate the distance between each element in $places from $city and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from the centre of $city
+Determine the nearest top 8 $dropdown to my location ( for example,if option 1 is selected then determine the top 8 pubs ) closest to $mygps and assign them to an array $places including their GPS coordinates. Calculate the distance between each element in $places from $city and $mygps and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from the centre of $city and $mygps 
