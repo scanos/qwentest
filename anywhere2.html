@@ -3,18 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>City Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2lEWz6eU/CRvVfWc9Wm9f0p3pHpzG3FF5N59zvY=" crossorigin=""/>
+  <title>OpenStreetMap Finder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     #map { height: 100vh; }
     .leaflet-popup-content-wrapper {
       font-family: Arial;
     }
+    #selectBox {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      padding: 8px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
 
-<select id="poiSelect" style="position: absolute; top: 10px; left: 10px; z-index: 1000;">
+<select id="selectBox">
   <option value="">-- Select a category --</option>
   <option value="pub">Pub</option>
   <option value="shop">Shop</option>
@@ -27,12 +35,12 @@
 
 <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-kx3EJ5dX2FbsKhsbHGOa1lUpIo2y2rh9ejPr2ESyqL0=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // Variables
-let mygps = null;
-let cityCenter = null;
-let cityName = "Unknown";
+let $mygps = null;
+let $cityCenter = null;
+let $city = "Unknown";
 let map = L.map('map').setView([0, 0], 13);
 let markersLayer = L.layerGroup().addTo(map);
 
@@ -40,19 +48,19 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-// Get User Location
+// Step 1: Get user GPS
 if ("geolocation" in navigator) {
   navigator.geolocation.getCurrentPosition(async function(position) {
-    mygps = [position.coords.latitude, position.coords.longitude];
-    map.setView(mygps, 13);
-    addMarker(mygps, 'You are here', 'blue');
+    $mygps = [position.coords.latitude, position.coords.longitude];
+    map.setView($mygps, 13);
+    addMarker($mygps, 'You are here', 'blue');
 
-    // Reverse geocode to get city name
-    await reverseGeocode(mygps);
-    if (cityCenter && cityName) {
-      addMarker(cityCenter, `${cityName} Center`, 'red');
-      let dist = getDistance(mygps, cityCenter).toFixed(1);
-      document.querySelector('#map').innerHTML += `<div style="position: absolute; bottom: 10px; left: 10px; background: white; padding: 5px;">You are ${dist} km from ${cityName}</div>`;
+    // Step 2: Reverse geocode to get city
+    await reverseGeocode($mygps);
+    if ($cityCenter && $city) {
+      addMarker($cityCenter, `${$city} Center`, 'red');
+      let dist = getDistance($mygps, $cityCenter).toFixed(1);
+      document.body.innerHTML += `<div style="position: absolute; bottom: 10px; left: 10px; background: white; padding: 5px;">You are ${dist} km from ${$city}</div>`;
     }
 
   }, function(error) {
@@ -71,43 +79,47 @@ function addMarker(latlng, label, color='green') {
   return marker;
 }
 
-// Reverse geocode to get city
+// Reverse geocode using Nominatim API
 async function reverseGeocode(latlng) {
   const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng[0]}&lon=${latlng[1]}`);
   const data = await res.json();
   if (data.address.city || data.address.town || data.address.village) {
-    cityName = data.address.city || data.address.town || data.address.village;
-    cityCenter = [parseFloat(data.lat), parseFloat(data.lon)];
+    $city = data.address.city || data.address.town || data.address.village;
+    $cityCenter = [parseFloat(data.lat), parseFloat(data.lon)];
   }
 }
 
 // Handle dropdown change
-document.getElementById('poiSelect').addEventListener('change', async function() {
-  let dropdown = this.value;
-  if (!dropdown || !cityCenter) return;
+document.getElementById('selectBox').addEventListener('change', async function() {
+  let $dropdown = this.value;
+  if (!$dropdown || !$mygps) return;
 
   // Clear previous markers
   markersLayer.clearLayers();
 
   // Re-add main markers
-  addMarker(mygps, 'You are here', 'blue');
-  addMarker(cityCenter, `${cityName} Center`, 'red');
+  addMarker($mygps, 'You are here', 'blue');
+  if ($cityCenter) {
+    addMarker($cityCenter, `${$city} Center`, 'red');
+  }
 
   // Fetch places
-  let places = await getTopPOIs(dropdown, cityCenter);
-  console.log(places);
+  let $places = await getTopPOIs($dropdown, $mygps);
+  console.log($places);
 
-  places.forEach(p => {
-    let dist = getDistance(cityCenter, [p.lat, p.lon]).toFixed(1);
-    addMarker([p.lat, p.lon], `<strong>${p.name}</strong><br>${dist} km from center`);
+  $places.forEach(p => {
+    let distFromCity = getDistance([$cityCenter[0], $cityCenter[1]], [p.lat, p.lon]).toFixed(1);
+    let distFromUser = getDistance($mygps, [p.lat, p.lon]).toFixed(1);
+    let popupContent = `<strong>${p.name}</strong><br>📍 ${distFromCity} km from city center<br>🚶 ${distFromUser} km from you`;
+    addMarker([p.lat, p.lon], popupContent);
   });
 });
 
-// Get Top 10 POIs using Overpass API
+// Get Top 8 POIs near user using Overpass API
 async function getTopPOIs(type, latlng) {
   const query = `
   [out:json][timeout:25];
-  node["tourism"="${type}" ](around:5000,${latlng[0]},${latlng[1]});
+  node["${type === 'hotel' ? 'tourism' : 'amenity'}"="${type}"](around:5000,${latlng[0]},${latlng[1]});
   out body;
   >;
   out skel qt;
@@ -128,12 +140,19 @@ async function getTopPOIs(type, latlng) {
     }
   }
 
-  return places.slice(0,10); // Limit to 10
+  // Sort by proximity to user
+  places.sort((a, b) => {
+    let d1 = getDistance($mygps, [a.lat, a.lon]);
+    let d2 = getDistance($mygps, [b.lat, b.lon]);
+    return d1 - d2;
+  });
+
+  return places.slice(0, 8); // Limit to top 8
 }
 
-// Distance in km between two coordinates
+// Distance between two points in km
 function getDistance([lat1, lon1], [lat2, lon2]) {
-  const R = 6371; // Radius of the earth in km
+  const R = 6371; // Radius of earth in km
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
   const a =
