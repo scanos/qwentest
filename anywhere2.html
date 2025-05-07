@@ -1,163 +1,151 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>City POI Map</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>City Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+e2lEWz6eU/CRvVfWc9Wm9f0p3pHpzG3FF5N59zvY=" crossorigin=""/>
   <style>
     #map { height: 100vh; }
-    .controls {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 1000;
-      background: white;
-      padding: 10px;
-      border-radius: 5px;
+    .leaflet-popup-content-wrapper {
+      font-family: Arial;
     }
   </style>
 </head>
 <body>
 
-<div class="controls">
-  <label for="category">Select Category:</label>
-  <select id="category">
-    <option value="">-- Select --</option>
-    <option value="pub">Pub</option>
-    <option value="shop">Shop</option>
-    <option value="accommodation">Accommodation</option>
-    <option value="toilet">Toilet</option>
-    <option value="tourism">Tourism</option>
-  </select>
-</div>
+<select id="poiSelect" style="position: absolute; top: 10px; left: 10px; z-index: 1000;">
+  <option value="">-- Select a category --</option>
+  <option value="pub">Pub</option>
+  <option value="shop">Shop</option>
+  <option value="hotel">Accommodation</option>
+  <option value="toilets">Toilet</option>
+  <option value="tourist_attraction">Tourism</option>
+  <option value="bus_station">Bus</option>
+  <option value="subway">Metro</option>
+</select>
 
 <div id="map"></div>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-kx3EJ5dX2FbsKhsbHGOa1lUpIo2y2rh9ejPr2ESyqL0=" crossorigin=""></script>
 <script>
-// Global variables
-let map;
-let cityMarker;
-let placeMarkers = [];
-let cityLat, cityLon;
-let cityName;
+// Variables
+let mygps = null;
+let cityCenter = null;
+let cityName = "Unknown";
+let map = L.map('map').setView([0, 0], 13);
+let markersLayer = L.layerGroup().addTo(map);
 
-// Function to calculate distance between two coordinates (in miles)
-function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 3958.8; // Radius of Earth in miles
-  const rlat1 = lat1 * Math.PI / 180;
-  const rlat2 = lat2 * Math.PI / 180;
-  const dlat = (lat2 - lat1) * Math.PI / 180;
-  const dlon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dlat/2) * Math.sin(dlat/2) +
-    Math.cos(rlat1) * Math.cos(rlat2) *
-    Math.sin(dlon/2) * Math.sin(dlon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Get User Location
+if ("geolocation" in navigator) {
+  navigator.geolocation.getCurrentPosition(async function(position) {
+    mygps = [position.coords.latitude, position.coords.longitude];
+    map.setView(mygps, 13);
+    addMarker(mygps, 'You are here', 'blue');
+
+    // Reverse geocode to get city name
+    await reverseGeocode(mygps);
+    if (cityCenter && cityName) {
+      addMarker(cityCenter, `${cityName} Center`, 'red');
+      let dist = getDistance(mygps, cityCenter).toFixed(1);
+      document.querySelector('#map').innerHTML += `<div style="position: absolute; bottom: 10px; left: 10px; background: white; padding: 5px;">You are ${dist} km from ${cityName}</div>`;
+    }
+
+  }, function(error) {
+    alert("Error getting location");
+  });
+} else {
+  alert("Geolocation not supported");
 }
 
-// Reverse geocode to get city name
-async function reverseGeocode(lat, lon) {
-  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+// Add marker
+function addMarker(latlng, label, color='green') {
+  let marker = L.marker(latlng, {
+    icon: L.divIcon({ className: 'marker', html: `<div style="background:${color}; width:12px; height:12px; border-radius:50%;"></div>` })
+  }).addTo(markersLayer)
+    .bindPopup(label);
+  return marker;
+}
+
+// Reverse geocode to get city
+async function reverseGeocode(latlng) {
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng[0]}&lon=${latlng[1]}`);
   const data = await res.json();
-  return data.address.city || data.address.town || data.address.village || "Unknown Location";
+  if (data.address.city || data.address.town || data.address.village) {
+    cityName = data.address.city || data.address.town || data.address.village;
+    cityCenter = [parseFloat(data.lat), parseFloat(data.lon)];
+  }
 }
 
-// Load map and handle user location
-navigator.geolocation.getCurrentPosition(async (position) => {
-  cityLat = position.coords.latitude;
-  cityLon = position.coords.longitude;
+// Handle dropdown change
+document.getElementById('poiSelect').addEventListener('change', async function() {
+  let dropdown = this.value;
+  if (!dropdown || !cityCenter) return;
 
-  cityName = await reverseGeocode(cityLat, cityLon);
+  // Clear previous markers
+  markersLayer.clearLayers();
 
-  // Initialize map
-  map = L.map('map').setView([cityLat, cityLon], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  // Re-add main markers
+  addMarker(mygps, 'You are here', 'blue');
+  addMarker(cityCenter, `${cityName} Center`, 'red');
 
-  // Add city marker
-  cityMarker = L.marker([cityLat, cityLon]).addTo(map)
-    .bindPopup(`<b>${cityName}</b><br>Center of city`)
-    .openPopup();
+  // Fetch places
+  let places = await getTopPOIs(dropdown, cityCenter);
+  console.log(places);
 
-  // Handle dropdown change
-  document.getElementById("category").addEventListener("change", async function () {
-    const selected = this.value;
-    if (!selected) return;
-
-    // Clear previous markers
-    placeMarkers.forEach(m => map.removeLayer(m));
-    placeMarkers = [];
-
-    let osmTagKey = '';
-    let osmTagValue = '';
-
-    switch(selected) {
-      case 'pub':
-        osmTagKey = 'amenity';
-        osmTagValue = 'pub';
-        break;
-      case 'shop':
-        osmTagKey = 'shop';
-        osmTagValue = 'yes';
-        break;
-      case 'accommodation':
-        osmTagKey = 'tourism';
-        osmTagValue = 'hotel';
-        break;
-      case 'toilet':
-        osmTagKey = 'amenity';
-        osmTagValue = 'toilets';
-        break;
-      case 'tourism':
-        osmTagKey = 'tourism';
-        osmTagValue = 'attraction';
-        break;
-      default:
-        osmTagKey = '';
-        osmTagValue = '';
-    }
-
-    if (!osmTagKey || !osmTagValue) return;
-
-    // Fetch from Overpass API
-    const overpassQuery = `
-      [out:json][timeout:25];
-      node["${osmTagKey}"="${osmTagValue}"](around:10000,${cityLat},${cityLon});
-      out body;
-    `;
-
-    const encodedQuery = encodeURIComponent(overpassQuery);
-    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodedQuery}`);
-    const data = await res.json();
-
-    let places = [];
-
-    for (const element of data.elements.slice(0, 8)) {
-      const name = element.tags.name || "Unnamed";
-      const lat = element.lat;
-      const lon = element.lon;
-      const distance = getDistance(cityLat, cityLon, lat, lon).toFixed(1);
-      places.push({ name, lat, lon, distance });
-    }
-
-    // Add markers for each place
-    places.forEach(p => {
-      const marker = L.marker([p.lat, p.lon]).addTo(map)
-        .bindPopup(`${p.name}<br><small>${p.distance} mi from ${cityName}</small>`);
-      placeMarkers.push(marker);
-    });
-
-    if (places.length > 0) {
-      map.fitBounds(placeMarkers.map(m => m.getLatLng()));
-    }
+  places.forEach(p => {
+    let dist = getDistance(cityCenter, [p.lat, p.lon]).toFixed(1);
+    addMarker([p.lat, p.lon], `<strong>${p.name}</strong><br>${dist} km from center`);
   });
 });
+
+// Get Top 10 POIs using Overpass API
+async function getTopPOIs(type, latlng) {
+  const query = `
+  [out:json][timeout:25];
+  node["tourism"="${type}" ](around:5000,${latlng[0]},${latlng[1]});
+  out body;
+  >;
+  out skel qt;
+  `;
+
+  const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
+  const res = await fetch(url);
+  const data = await res.json();
+
+  let places = [];
+  for (let el of data.elements) {
+    if (el.type === "node") {
+      places.push({
+        name: el.tags.name || "Unnamed",
+        lat: el.lat,
+        lon: el.lon
+      });
+    }
+  }
+
+  return places.slice(0,10); // Limit to 10
+}
+
+// Distance in km between two coordinates
+function getDistance([lat1, lon1], [lat2, lon2]) {
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
 </script>
 </body>
 </html>
