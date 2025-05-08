@@ -24,6 +24,9 @@
             <option value="bar">Bar</option>
             <option value="cafe">Cafe</option>
             <option value="hotel">Hotel</option>
+            <option value="castle">Castle</option>
+            <option value="church">Church</option>
+            <option value="metro">Metro</option>
         </select>
     </div>
     <div id="map"></div>
@@ -53,7 +56,7 @@
         function initMap(lat, lon) {
             map = L.map('map').setView([lat, lon], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
         }
 
@@ -133,18 +136,28 @@
                 const data = await response.json();
                 const countryCode = data.address.country_code?.toUpperCase();
                 const translations = {
-                    FR: { bar: "Bar", cafe: "Café", hotel: "Hôtel" },
-                    ES: { bar: "Bar", cafe: "Cafetería", hotel: "Hotel" },
-                    DE: { bar: "Bar", cafe: "Café", hotel: "Hotel" },
-                    IT: { bar: "Bar", cafe: "Caffè", hotel: "Hotel" }
+                    FR: { bar: "Bar", cafe: "Café", hotel: "Hôtel", castle: "Château", church: "Église", metro: "Métro" },
+                    ES: { bar: "Bar", cafe: "Cafetería", hotel: "Hotel", castle: "Castillo", church: "Iglesia", metro: "Metro" },
+                    DE: { bar: "Bar", cafe: "Café", hotel: "Hotel", castle: "Schloss", church: "Kirche", metro: "U-Bahn" },
+                    IT: { bar: "Bar", cafe: "Caffè", hotel: "Hotel", castle: "Castello", church: "Chiesa", metro: "Metropolitana" }
                     // Add more as needed
                 };
-                const options = translations[countryCode] || { bar: "Bar", cafe: "Cafe", hotel: "Hotel" };
+                const options = translations[countryCode] || {
+                    bar: "Bar",
+                    cafe: "Cafe",
+                    hotel: "Hotel",
+                    castle: "Castle",
+                    church: "Church",
+                    metro: "Metro"
+                };
                 const select = document.getElementById('place-type');
                 select.innerHTML = `
                     <option value="bar">${options.bar}</option>
                     <option value="cafe">${options.cafe}</option>
                     <option value="hotel">${options.hotel}</option>
+                    <option value="castle">${options.castle}</option>
+                    <option value="church">${options.church}</option>
+                    <option value="metro">${options.metro}</option>
                 `;
             } catch (error) {
                 console.error("Error translating dropdown:", error);
@@ -163,10 +176,18 @@
                     }
                 });
 
-                // Query Overpass API
+                // Define Overpass query based on dropdown
+                const queries = {
+                    bar: `node(around:10000,${mygps.lat},${mygps.lon})["amenity"="bar"]`,
+                    cafe: `node(around:10000,${mygps.lat},${mygps.lon})["amenity"="cafe"]`,
+                    hotel: `node(around:10000,${mygps.lat},${mygps.lon})["tourism"="hotel"]`,
+                    castle: `node(around:10000,${mygps.lat},${mygps.lon})["historic"="castle"]`,
+                    church: `node(around:10000,${mygps.lat},${mygps.lon})["amenity"="place_of_worship"]`,
+                    metro: `node(around:10000,${mygps.lat},${mygps.lon})["railway"="subway_entrance"]`
+                };
                 const query = `
                     [out:json];
-                    node(around:10000,${mygps.lat},${mygps.lon})["amenity"="${dropdown}"];
+                    ${queries[dropdown]};
                     out body 8;
                 `;
                 const response = await fetch('https://overpass-api.de/api/interpreter', {
