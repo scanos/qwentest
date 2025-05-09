@@ -4,45 +4,88 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Places to See</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-nxwf4+QBNDawcxQQmZJ0Y82UBRUXO6jUn36Y4v6zZjeMhWCa+0Sy TesJVO4gob4Vvu+RHm7Oh3eAD/tR/M3x5g==" crossorigin="anonymous" />
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-+r+7VJ2wAPb0u7Fj3zB9qG9ZLEL+/oOlyMwYAv0kY6GSS6H64Q3Kx76FdbI9EldRnxkUhIgbad1pR1Nnp2CJ9PQ==" crossorigin="anonymous"></script>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; }
-        #map { height: 70vh; width: 100%; }
-        #controls { padding: 10px; text-align: center; }
-        select { padding: 5px; font-size: 16px; }
-        h1 { text-align: center; margin: 10px 0; }
-        @media (max-width: 600px) {
-            #map { height: 60vh; }
-            select { width: 100%; }
+        #map { height: 500px; width: 100%; }
+        @media (max-width: 640px) {
+            #map { height: 400px; }
         }
     </style>
 </head>
-<body>
-    <h1 id="map-title">Places to See</h1>
-    <div id="controls">
-        <select id="place-type" onchange="updatePlaces()">
-            <option value="bar">Bar</option>
-            <option value="cafe">Cafe</option>
-            <option value="hotel">Hotel</option>
-            <option value="castle">Castle</option>
-            <option value="church">Church</option>
-            <option value="metro">Metro</option>
-        </select>
+<body class="bg-gray-100 flex flex-col items-center min-h-screen p-4">
+    <div class="w-full max-w-4xl bg-white rounded-lg shadow-lg p-6">
+        <h1 id="map-title" class="text-2xl font-bold text-center mb-4">Places to See</h1>
+        <div class="mb-4">
+            <label for="place-type" class="block text-sm font-medium text-gray-700 mb-2">Select Place Type:</label>
+            <select id="place-type" class="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="tourism.information">Tourist Office</option>
+                <option value="catering.cafe">Cafe</option>
+                <option value="accommodation.hotel">Hotel</option>
+                <option value="commercial.supermarket">Store</option>
+                <option value="public_transport.bus">Bus Stop</option>
+                <option value="public_transport.station">Station</option>
+            </select>
+        </div>
+        <p id="status" class="text-center text-gray-600 mb-4">Locating...</p>
+        <div id="map"></div>
     </div>
-    <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Geoapify API key (replace with your own)
+        const GEOAPIFY_API_KEY = 'YOUR_GEOAPIFY_API_KEY'; // Get from https://www.geoapify.com/
+
+        // Initialize variables
         let mygps = null;
-        let cityname = "Unknown";
+        let cityname = 'Unknown City';
         let city = null;
-        let dropdown = "bar";
+        let dropdown = 'tourism.information';
         let places = [];
         let map = null;
 
+        // Translation mappings for dropdown options
+        const translations = {
+            'en': {
+                'tourism.information': 'Tourist Office',
+                'catering.cafe': 'Cafe',
+                'accommodation.hotel': 'Hotel',
+                'commercial.supermarket': 'Store',
+                'public_transport.bus': 'Bus Stop',
+                'public_transport.station': 'Station'
+            },
+            'fr': {
+                'tourism.information': 'Office de Tourisme',
+                'catering.cafe': 'Café',
+                'accommodation.hotel': 'Hôtel',
+                'commercial.supermarket': 'Magasin',
+                'public_transport.bus': 'Arrêt de Bus',
+                'public_transport.station': 'Gare'
+            },
+            'es': {
+                'tourism.information': 'Oficina de Turismo',
+                'catering.cafe': 'Cafetería',
+                'accommodation.hotel': 'Hotel',
+                'commercial.supermarket': 'Tienda',
+                'public_transport.bus': 'Parada de Autobús',
+                'public_transport.station': 'Estación'
+            },
+            'de': {
+                'tourism.information': 'Touristeninformation',
+                'catering.cafe': 'Café',
+                'accommodation.hotel': 'Hotel',
+                'commercial.supermarket': 'Geschäft',
+                'public_transport.bus': 'Bushaltestelle',
+                'public_transport.station': 'Bahnhof'
+            }
+        };
+
         // Haversine formula to calculate distance in miles
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 3958.8; // Earth's radius in miles
+            const R = 3958.8; // Earth radius in miles
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -56,7 +99,7 @@
         function initMap(lat, lon) {
             map = L.map('map').setView([lat, lon], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
         }
 
@@ -69,165 +112,137 @@
             }
         }
 
-        // Get user's GPS coordinates
-        function getUserLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        mygps = {
-                            lat: position.coords.latitude,
-                            lon: position.coords.longitude
-                        };
-                        initMap(mygps.lat, mygps.lon);
-                        getNearestCity();
-                    },
-                    error => {
-                        console.error("Geolocation error:", error);
-                        alert("Unable to get your location. Using default coordinates.");
-                        mygps = { lat: 51.505, lon: -0.09 }; // Default to London
-                        initMap(mygps.lat, mygps.lon);
-                        getNearestCity();
-                    }
-                );
-            } else {
-                alert("Geolocation is not supported by this browser.");
-                mygps = { lat: 51.505, lon: -0.09 };
-                initMap(mygps.lat, mygps.lon);
-                getNearestCity();
-            }
+        // Update dropdown with translated options
+        function updateDropdown(language) {
+            const select = document.getElementById('place-type');
+            select.innerHTML = '';
+            const options = [
+                'tourism.information',
+                'catering.cafe',
+                'accommodation.hotel',
+                'commercial.supermarket',
+                'public_transport.bus',
+                'public_transport.station'
+            ];
+            const lang = translations[language] ? language : 'en';
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt;
+                option.textContent = translations[lang][opt];
+                if (opt === dropdown) option.selected = true;
+                select.appendChild(option);
+            });
         }
 
-        // Get nearest city using Nominatim
-        async function getNearestCity() {
+        // Fetch nearest city and language
+        async function getNearestCity(lat, lon) {
             try {
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&zoom=10&addressdetails=1`,
-                    { headers: { 'User-Agent': 'GrokPlacesApp/1.0' } }
-                );
+                const response = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=${GEOAPIFY_API_KEY}`);
                 const data = await response.json();
-                cityname = data.address.city || data.address.town || data.address.village || "Unknown";
-                city = {
-                    lat: parseFloat(data.lat),
-                    lon: parseFloat(data.lon)
-                };
-                document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
-                const distance = calculateDistance(mygps.lat, mygps.lon, city.lat, city.lon).toFixed(2);
-                addMarker(mygps.lat, mygps.lon, `Your Location<br>${distance} miles from ${cityname}`, true);
-                translateDropdown();
-                updatePlaces();
-            } catch (error) {
-                console.error("Error fetching city:", error);
-                cityname = "Unknown";
-                city = mygps;
-                document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
-                addMarker(mygps.lat, mygps.lon, `Your Location`, true);
-                translateDropdown();
-                updatePlaces();
-            }
-        }
-
-        // Translate dropdown based on country
-        async function translateDropdown() {
-            try {
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&addressdetails=1`,
-                    { headers: { 'User-Agent': 'GrokPlacesApp/1.0' } }
-                );
-                const data = await response.json();
-                const countryCode = data.address.country_code?.toUpperCase();
-                const translations = {
-                    FR: { bar: "Bar", cafe: "Café", hotel: "Hôtel", castle: "Château", church: "Église", metro: "Métro" },
-                    ES: { bar: "Bar", cafe: "Cafetería", hotel: "Hotel", castle: "Castillo", church: "Iglesia", metro: "Metro" },
-                    DE: { bar: "Bar", cafe: "Café", hotel: "Hotel", castle: "Schloss", church: "Kirche", metro: "U-Bahn" },
-                    IT: { bar: "Bar", cafe: "Caffè", hotel: "Hotel", castle: "Castello", church: "Chiesa", metro: "Metropolitana" }
-                    // Add more as needed
-                };
-                const options = translations[countryCode] || {
-                    bar: "Bar",
-                    cafe: "Cafe",
-                    hotel: "Hotel",
-                    castle: "Castle",
-                    church: "Church",
-                    metro: "Metro"
-                };
-                const select = document.getElementById('place-type');
-                select.innerHTML = `
-                    <option value="bar">${options.bar}</option>
-                    <option value="cafe">${options.cafe}</option>
-                    <option value="hotel">${options.hotel}</option>
-                    <option value="castle">${options.castle}</option>
-                    <option value="church">${options.church}</option>
-                    <option value="metro">${options.metro}</option>
-                `;
-            } catch (error) {
-                console.error("Error translating dropdown:", error);
-            }
-        }
-
-        // Update places based on dropdown selection
-        async function updatePlaces() {
-            dropdown = document.getElementById('place-type').value;
-            places = [];
-            try {
-                // Clear existing place markers
-                map.eachLayer(layer => {
-                    if (layer instanceof L.Marker && layer !== map.getCenter()) {
-                        map.removeLayer(layer);
-                    }
-                });
-
-                // Define Overpass query based on dropdown
-                const queries = {
-                    bar: `node(around:10000,${mygps.lat},${mygps.lon})["amenity"="bar"]`,
-                    cafe: `node(around:10000,${mygps.lat},${mygps.lon})["amenity"="cafe"]`,
-                    hotel: `node(around:10000,${mygps.lat},${mygps.lon})["tourism"="hotel"]`,
-                    castle: `node(around:10000,${mygps.lat},${mygps.lon})["historic"="castle"]`,
-                    church: `node(around:10000,${mygps.lat},${mygps.lon})["amenity"="place_of_worship"]`,
-                    metro: `node(around:10000,${mygps.lat},${mygps.lon})["railway"="subway_entrance"]`
-                };
-                const query = `
-                    [out:json];
-                    ${queries[dropdown]};
-                    out body 8;
-                `;
-                const response = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST',
-                    body: query,
-                    headers: { 'User-Agent': 'GrokPlacesApp/1.0' }
-                });
-                const data = await response.json();
-
-                places = data.elements.map(element => ({
-                    name: element.tags.name || dropdown.charAt(0).toUpperCase() + dropdown.slice(1),
-                    lat: element.lat,
-                    lon: element.lon,
-                    distance: calculateDistance(mygps.lat, mygps.lon, element.lat, element.lon).toFixed(2)
-                }));
-
-                // Sort by distance
-                places.sort((a, b) => a.distance - b.distance);
-
-                // Add markers for places
-                places.forEach(place => {
-                    addMarker(place.lat, place.lon, `${place.name}<br>${place.distance} miles from you`);
-                });
-
-                // Adjust map bounds to include all markers
-                if (places.length > 0) {
-                    const bounds = L.latLngBounds([
-                        [mygps.lat, mygps.lon],
-                        ...places.map(p => [p.lat, p.lon])
-                    ]);
-                    map.fitBounds(bounds, { padding: [50, 50] });
+                if (data.features && data.features.length > 0) {
+                    const feature = data.features[0].properties;
+                    cityname = feature.city || feature.town || 'Unknown City';
+                    city = { lat: feature.lat, lon: feature.lon };
+                    document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
+                    const countryCode = feature.country_code.toLowerCase();
+                    // Map country code to language (simplified)
+                    const languageMap = {
+                        'fr': 'fr', 'es': 'es', 'de': 'de',
+                        'us': 'en', 'gb': 'en', 'ca': 'en'
+                    };
+                    const language = languageMap[countryCode] || 'en';
+                    updateDropdown(language);
+                    return true;
                 }
+                return false;
             } catch (error) {
-                console.error("Error fetching places:", error);
-                alert("Unable to fetch nearby places. Please try again.");
+                console.error('Error fetching city:', error);
+                return false;
             }
         }
 
-        // Initialize
-        getUserLocation();
+        // Fetch nearest places
+        async function getNearestPlaces(lat, lon, type) {
+            try {
+                const response = await fetch(`https://api.geoapify.com/v2/places?categories=${type}&filter=circle:${lon},${lat},5000&limit=8&apiKey=${GEOAPIFY_API_KEY}`);
+                const data = await response.json();
+                places = [];
+                if (data.features && data.features.length > 0) {
+                    data.features.forEach(feature => {
+                        const props = feature.properties;
+                        const coords = feature.geometry.coordinates;
+                        const distance = calculateDistance(lat, lon, coords[1], coords[0]);
+                        places.push({
+                            name: props.name || type.split('.').pop(),
+                            lat: coords[1],
+                            lon: coords[0],
+                            distance: distance.toFixed(2)
+                        });
+                    });
+                }
+                updateMap();
+            } catch (error) {
+                console.error('Error fetching places:', error);
+                document.getElementById('status').textContent = 'Error fetching places.';
+            }
+        }
+
+        // Update map with markers
+        function updateMap() {
+            if (!map || !mygps) return;
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) map.removeLayer(layer);
+            });
+            const cityDistance = calculateDistance(mygps.lat, mygps.lon, city.lat, city.lon).toFixed(2);
+            addMarker(mygps.lat, mygps.lon, `You are here (${cityDistance} miles from ${cityname})`, true);
+            places.forEach(place => {
+                addMarker(place.lat, place.lon, `${place.name} (${place.distance} miles)`);
+            });
+            // Adjust map bounds to fit all markers
+            const bounds = L.latLngBounds([
+                [mygps.lat, mygps.lon],
+                [city.lat, city.lon],
+                ...places.map(p => [p.lat, p.lon])
+            ]);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        // Handle geolocation
+        function handleGeolocation() {
+            if (!navigator.geolocation) {
+                document.getElementById('status').textContent = 'Geolocation is not supported by your browser.';
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    mygps = { lat: position.coords.latitude, lon: position.coords.longitude };
+                    document.getElementById('status').textContent = 'Location found!';
+                    initMap(mygps.lat, mygps.lon);
+                    const cityFound = await getNearestCity(mygps.lat, mygps.lon);
+                    if (cityFound) {
+                        await getNearestPlaces(mygps.lat, mygps.lon, dropdown);
+                    } else {
+                        document.getElementById('status').textContent = 'Unable to determine nearest city.';
+                    }
+                },
+                (error) => {
+                    document.getElementById('status').textContent = 'Unable to retrieve your location.';
+                    console.error('Geolocation error:', error);
+                }
+            );
+        }
+
+        // Handle dropdown change
+        document.getElementById('place-type').addEventListener('change', async (e) => {
+            dropdown = e.target.value;
+            if (mygps) {
+                document.getElementById('status').textContent = 'Fetching places...';
+                await getNearestPlaces(mygps.lat, mygps.lon, dropdown);
+            }
+        });
+
+        // Start geolocation
+        handleGeolocation();
     </script>
 </body>
 </html>
