@@ -1,15 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Places to See</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+    <style>
+        #map { height: 500px; }
+        @media (max-width: 640px) {
+            #map { height: 400px; }
+        }
+        .leaflet-popup-content { max-width: 200px; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 id="map-title" class="text-2xl font-bold text-center mb-4">Places to See</h1>
+        <div class="mb-4 flex justify-center">
+            <select id="place-type" class="p-2 border rounded-md w-full sm:w-64">
+                <option value="tourist_office">Tourist Office</option>
+                <option value="cafe">Cafe</option>
+                <option value="hotel">Hotel</option>
+                <option value="store">Store</option>
+                <option value="stop">Stop</option>
+                <option value="station">Station</option>
+            </select>
+        </div>
+        <div id="map" class="w-full rounded-lg shadow-lg"></div>
+    </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Haversine formula to calculate distance in miles
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Earth's radius in miles
+            const radLat1 = (Math.PI * lat1) / 180;
+            const radLat2 = (Math.PI * lat2) / 180;
+            const deltaLat = ((lat2 - lat1) * Math.PI) / 180;
+            const deltaLon = ((lon2 - lon1) * Math.PI) / 180;
+            const a = Math.sin(deltaLat / 2) ** 2 +
+                      Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLon / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. On a responsive html page on an openstreetmap map titled "places to see in' $cityname create a marker and label for $mygps showing the distance of $mygps from $cityname and
+        // Translation mappings for dropdown options
+        const translations = {
+            'US': { // English (default)
+                tourist_office: 'Tourist Office',
+                cafe: 'Cafe',
+                hotel: 'Hotel',
+                store: 'Store',
+                stop: 'Stop',
+                station: 'Station'
+            },
+            'FR': { // French
+                tourist_office: 'Office de Tourisme',
+                cafe: 'Café',
+                hotel: 'Hôtel',
+                store: 'Magasin',
+                stop: 'Arrêt',
+                station: 'Gare'
+            },
+            'ES': { // Spanish
+                tourist_office: 'Oficina de Turismo',
+                cafe: 'Cafetería',
+                hotel: 'Hotel',
+                store: 'Tienda',
+                stop: 'Parada',
+                station: 'Estación'
+            },
+            'DE': { // German
+                tourist_office: 'Touristeninformation',
+                cafe: 'Café',
+                hotel: 'Hotel',
+                store: 'Geschäft',
+                stop: 'Haltestelle',
+                station: 'Bahnhof'
+            }
+        };
 
-using a html select tag create a drop down menu option 1 tourist office 
-option 2 cafe
-option 3 hotel
-option 4 store
-option 5 stop
-option 6 station
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-( if necessary, translate the drop menu to the language of the country where $cityname is located)
-once clicked assign the selected option value to $dropdown
+        let mygps = null;
+        let cityname = 'Unknown City';
+        let city = null;
+        let dropdown = 'tourist_office';
+        let places = [];
+        let markers = [];
 
-Determine the nearest 8 $dropdown (which have a description other than unnamed) to $mygps ( for example,if option 1 is selected then determine the 8 tourist office closest to $mygps)  and assign them to an array $places including their GPS coordinates. Calculate the distance between each element in $places from $mygps and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from $mygps 
+        // Function to update map markers
+        function updateMap() {
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            if (mygps) {
+                // Add marker for user's location
+                const distanceToCity = city ? haversineDistance(mygps.lat, mygps.lon, city.lat, city.lon).toFixed(2) : 'N/A';
+                const userMarker = L.marker([mygps.lat, mygps.lon]).addTo(map);
+                userMarker.bindPopup(`My Location<br>Distance to ${cityname}: ${distanceToCity} miles`).openPopup();
+                markers.push(userMarker);
+
+                // Add markers for places
+                places.forEach(place => {
+                    const marker = L.marker([place.lat, place.lon]).addTo(map);
+                    marker.bindPopup(`${place.name}<br>Distance: ${place.distance.toFixed(2)} miles`);
+                    markers.push(marker);
+                });
+            }
+
+            // Update map title
+            document.getElementById('map-title').textContent = `Places to see in ${cityname}`;
+        }
+
+        // Function to update dropdown translations
+        function updateDropdown(countryCode) {
+            const select = document.getElementById('place-type');
+            const trans = translations[countryCode] || translations['US'];
+            select.innerHTML = `
+                <option value="tourist_office">${trans.tourist_office}</option>
+                <option value="cafe">${trans.cafe}</option>
+                <option value="hotel">${trans.hotel}</option>
+                <option value="store">${trans.store}</option>
+                <option value="stop">${trans.stop}</option>
+                <option value="station">${trans.station}</option>
+            `;
+            select.value = dropdown;
+        }
+
+        // Function to fetch nearby places
+        async function fetchPlaces() {
+            if (!mygps) return;
+
+            const overpassQuery = `
+                [out:json];
+                node
+                    ["${dropdown === 'tourist_office' ? 'tourism' : dropdown === 'cafe' ? 'amenity' : dropdown === 'hotel' ? 'tourism' : dropdown === 'store' ? 'shop' : dropdown === 'stop' ? 'highway' : 'railway'}"="${dropdown === 'tourist_office' ? 'information' : dropdown === 'stop' ? 'bus_stop' : dropdown === 'station' ? 'station' : dropdown}"]
+                    ["name"!~"unnamed",i]
+                    (around:5000,${mygps.lat},${mygps.lon});
+                out center 8;
+            `;
+            try {
+                const response = await fetch('https://overpass-api.de/api/interpreter', {
+                    method: 'POST',
+                    body: overpassQuery
+                });
+                const data = await response.json();
+                places = data.elements.map(element => ({
+                    lat: element.lat,
+                    lon: element.lon,
+                    name: element.tags.name,
+                    distance: haversineDistance(mygps.lat, mygps.lon, element.lat, element.lon)
+                }));
+                updateMap();
+            } catch (error) {
+                console.error('Error fetching places:', error);
+            }
+        }
+
+        // Function to handle manual city input
+        async function handleManualCityInput() {
+            const userInput = prompt('Unable to access your location. Please enter a city name (e.g., New York):');
+            if (userInput) {
+                try {
+                    const cityResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(userInput)}&limit=1`);
+                    const cityData = await cityResponse.json();
+                    if (cityData[0]) {
+                        mygps = { lat: parseFloat(cityData[0].lat), lon: parseFloat(cityData[0].lon) };
+                        cityname = cityData[0].display_name.split(',')[0];
+                        city = { lat: mygps.lat, lon: mygps.lon };
+                        map.setView([mygps.lat, mygps.lon], 13);
+
+                        // Get country code for translations
+                        const reverseResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&zoom=10`);
+                        const reverseData = await reverseResponse.json();
+                        const countryCode = reverseData.address.country_code ? reverseData.address.country_code.toUpperCase() : 'US';
+
+                        updateDropdown(countryCode);
+                        await fetchPlaces();
+                    } else {
+                        alert('City not found. Using default location (New York City).');
+                        setDefaultLocation();
+                    }
+                } catch (error) {
+                    console.error('Error with manual city geocoding:', error);
+                    alert('Error finding city. Using default location (New York City).');
+                    setDefaultLocation();
+                }
+            } else {
+                alert('No city entered. Using default location (New York City).');
+                setDefaultLocation();
+            }
+        }
+
+        // Function to set default location (New York City)
+        async function setDefaultLocation() {
+            mygps = { lat: 40.7128, lon: -74.0060 };
+            cityname = 'New York City';
+            city = { lat: 40.7128, lon: -74.0060 };
+            map.setView([mygps.lat, mygps.lon], 13);
+            updateDropdown('US');
+            await fetchPlaces();
+        }
+
+        // Get user's location
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                mygps = { lat: position.coords.latitude, lon: position.coords.longitude };
+                map.setView([mygps.lat, mygps.lon], 13);
+
+                // Reverse geocode to find city
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&zoom=10`);
+                    const data = await response.json();
+                    cityname = data.address.city || data.address.town || data.address.village || 'Unknown City';
+                    const countryCode = data.address.country_code ? data.address.country_code.toUpperCase() : 'US';
+
+                    // Get city coordinates
+                    const cityResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityname)}&limit=1`);
+                    const cityData = await cityResponse.json();
+                    if (cityData[0]) {
+                        city = { lat: parseFloat(cityData[0].lat), lon: parseFloat(cityData[0].lon) };
+                    }
+
+                    // Update dropdown translations
+                    updateDropdown(countryCode);
+
+                    // Fetch initial places
+                    await fetchPlaces();
+                } catch (error) {
+                    console.error('Error with geocoding:', error);
+                    alert('Error finding city. Using default location (New York City).');
+                    setDefaultLocation();
+                }
+            },
+            (error) => {
+                let errorMessage = 'Unable to access location: ';
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage += 'Permission denied. Please allow location access.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage += 'Location information is unavailable.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage += 'The request to get location timed out.';
+                        break;
+                    default:
+                        errorMessage += 'An unknown error occurred.';
+                        break;
+                }
+                console.error('Geolocation error:', error);
+                alert(errorMessage);
+                handleManualCityInput();
+            },
+            { timeout: 10000 } // Add timeout to prevent hanging
+        );
+
+        // Handle dropdown change
+        document.getElementById('place-type').addEventListener('change', async (e) => {
+            dropdown = e.target.value;
+            await fetchPlaces();
+        });
+    </script>
+</body>
+</html>
