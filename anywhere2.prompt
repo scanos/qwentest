@@ -1,6 +1,6 @@
 
 
-determine my GPS coordinates from my web browser and assign to variable $mygps. determine the nearest city and assign it to $cityname determine the GPS coordinates of the nearest city and assign to a variable $city. on a responsive html page on an openstreetmap map titled "places to see in' $cityname. create a marker and label for $mygps showing the distance of $mygps from the center of $city and
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. On a responsive html page on an openstreetmap map titled "places to see in' $cityname create a marker and label for $mygps showing the distance of $mygps from $cityname and
 
 using a html select tag create a drop down menu option 1 tourist office 
 option 2 cafe
