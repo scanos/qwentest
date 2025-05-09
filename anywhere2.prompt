@@ -1,6 +1,6 @@
 
 
-determine my GPS coordinates from my web browser and assign to variable $mygps. determine the nearest city and assign it to $cityname determine the GPS coordinates of the nearest city and assign to a variable $city. create a marker and label for $mygps showing the distance of $mygps from $city, on a responsive html page on an openstreetmap map titled "places to see in' $cityname
+determine my GPS coordinates from my web browser and assign to variable $mygps. determine the nearest city and assign it to $cityname determine the GPS coordinates of the nearest city and assign to a variable $city. on a responsive html page on an openstreetmap map titled "places to see in' $cityname. create a marker and label for $mygps showing the distance of $mygps from the center of $city and
 
 using a html select tag create a drop down menu option 1 tourist office 
 option 2 cafe
@@ -9,7 +9,7 @@ option 4 store
 option 5 stop
 option 6 station
 
-( if necessary, translate the drop menu to the language of the country where $ciytname is located)
+( if necessary, translate the drop menu to the language of the country where $cityname is located)
 once clicked assign the selected option value to $dropdown
 
-Determine the nearest 8 $dropdown to $mygps ( for example,if option 1 is selected then determine the 8 bar closest to $mygps)  and assign them to an array $places including their GPS coordinates. Calculate the distance between each element in $places from $mygps and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from $mygps 
+Determine the nearest 8 $dropdown (which have a description other than unnamed) to $mygps ( for example,if option 1 is selected then determine the 8 tourist office closest to $mygps)  and assign them to an array $places including their GPS coordinates. Calculate the distance between each element in $places from $mygps and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from $mygps 
