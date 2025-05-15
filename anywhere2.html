@@ -21,7 +21,7 @@
         <div id="loading" class="text-center text-lg text-gray-600">Please Wait</div>
         <div class="mb-4 flex justify-center">
             <select id="category" class="p-2 border rounded-md">
-                <option value="attraction">Attraction</option>
+                <option value="tourist_attraction">Tourist Attraction</option>
                 <option value="cafe">Cafe</option>
                 <option value="hotel">Hotel</option>
                 <option value="store">Store</option>
@@ -37,7 +37,7 @@
         let mygps = null;
         let cityname = '';
         let city = null;
-        let dropdown = 'attraction';
+        let dropdown = 'tourist_attraction';
         let places = [];
         let map = null;
         let markers = [];
@@ -62,16 +62,16 @@
         // Translate dropdown options based on country language
         async function translateDropdown(countryCode) {
             const translations = {
-                'US': { attraction: 'Attraction', cafe: 'Cafe', hotel: 'Hotel', store: 'Store', stop: 'Stop', station: 'Station' },
-                'FR': { attraction: 'Attraction', cafe: 'Café', hotel: 'Hôtel', store: 'Magasin', stop: 'Arrêt', station: 'Gare' },
-                'DE': { attraction: 'Sehenswürdigkeit', cafe: 'Café', hotel: 'Hotel', store: 'Geschäft', stop: 'Haltestelle', station: 'Bahnhof' },
+                'US': { tourist_attraction: 'Tourist Attraction', cafe: 'Cafe', hotel: 'Hotel', store: 'Store', stop: 'Stop', station: 'Station' },
+                'FR': { tourist_attraction: 'Attraction Touristique', cafe: 'Café', hotel: 'Hôtel', store: 'Magasin', stop: 'Arrêt', station: 'Gare' },
+                'DE': { tourist_attraction: 'Touristenattraktion', cafe: 'Café', hotel: 'Hotel', store: 'Geschäft', stop: 'Haltestelle', station: 'Bahnhof' },
                 // Add more mappings as needed
             };
             const defaultLang = translations['US'];
             const lang = translations[countryCode] || defaultLang;
             const select = document.getElementById('category');
             select.innerHTML = `
-                <option value="attraction">${lang.attraction}</option>
+                <option value="tourist_attraction">${lang.tourist_attraction}</option>
                 <option value="cafe">${lang.cafe}</option>
                 <option value="hotel">${lang.hotel}</option>
                 <option value="store">${lang.store}</option>
@@ -84,7 +84,7 @@
         function initMap(lat, lon) {
             map = L.map('map').setView([lat, lon], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
         }
 
@@ -101,13 +101,26 @@
             markers.push(marker);
         }
 
+        // Fetch valid name for unnamed places using Nominatim
+        async function getValidName(lat, lon) {
+            const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`;
+            const response = await fetch(nominatimUrl);
+            const data = await response.json();
+            return data.display_name.split(',')[0] || 'Place';
+        }
+
         // Fetch nearest places using Overpass API
         async function fetchPlaces(category, lat, lon) {
+            const tag = category === 'tourist_attraction' ? 'tourism' :
+                        category === 'store' ? 'shop' :
+                        category === 'stop' ? 'highway' :
+                        category === 'station' ? 'railway' : category;
+            const value = category === 'stop' ? 'bus_stop' :
+                          category === 'station' ? 'station' : undefined;
             const overpassQuery = `
                 [out:json];
                 node
-                    ["${category === 'attraction' ? 'tourism' : category === 'store' ? 'shop' : category === 'stop' ? 'highway' : category === 'station' ? 'railway' : category}"]
-                    ["name"!~"^$"]
+                    ["${tag}${value ? '=' + value : ''}"]
                     (around:5000,${lat},${lon});
                 out body 8;
             `;
@@ -117,13 +130,22 @@
                 body: overpassQuery
             });
             const data = await response.json();
+            const elements = data.elements;
+            const places = [];
+            for (const elem of elements) {
+                let name = elem.tags.name || 'unnamed';
+                if (name.toLowerCase() === 'unnamed') {
+                    name = await getValidName(elem.lat, elem.lon);
+                }
+                places.push({
+                    name,
+                    lat: elem.lat,
+                    lon: elem.lon,
+                    distance: haversineDistance(lat, lon, elem.lat, elem.lon)
+                });
+            }
             showLoading(false);
-            return data.elements.map(elem => ({
-                name: elem.tags.name || 'Unnamed',
-                lat: elem.lat,
-                lon: elem.lon,
-                distance: haversineDistance(lat, lon, elem.lat, elem.lon)
-            }));
+            return places;
         }
 
         // Main logic
@@ -189,7 +211,7 @@
                         });
                     });
 
-                    // Initial fetch of attractions
+                    // Initial fetch of tourist attractions
                     places = await fetchPlaces(dropdown, mygps.lat, mygps.lon);
                     places.forEach(place => {
                         addMarker(place.lat, place.lon, `${place.name} (${place.distance.toFixed(2)} miles)`);
