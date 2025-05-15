@@ -25,8 +25,8 @@
                 <option value="cafe">Cafe</option>
                 <option value="hotel">Hotel</option>
                 <option value="store">Store</option>
-                <option value="stop">Stop</option>
-                <option value="station">Station</option>
+                <option value="bus_stop">Bus Stop</option>
+                <option value="railway_station">Railway Station</option>
             </select>
         </div>
         <div id="map"></div>
@@ -60,13 +60,33 @@
         }
 
         // Translate dropdown options based on country language
-        function translateDropdown(countryCode) {
+        async function translateDropdown(countryCode) {
             const translations = {
-                'US': { tourist_attraction: 'Tourist Attraction', cafe: 'Cafe', hotel: 'Hotel', store: 'Store', stop: 'Stop', station: 'Station' },
-                'FR': { tourist_attraction: 'Attraction Touristique', cafe: 'Café', hotel: 'Hôtel', store: 'Magasin', stop: 'Arrêt', station: 'Gare' },
-                'DE': { tourist_attraction: 'Touristenattraktion', cafe: 'Café', hotel: 'Hotel', store: 'Geschäft', stop: 'Haltestelle', station: 'Bahnhof' },
-                'ES': { tourist_attraction: 'Atracción Turística', cafe: 'Café', hotel: 'Hotel', store: 'Tienda', stop: 'Parada', station: 'Estación' },
-                'IT': { tourist_attraction: 'Attrazione Turistica', cafe: 'Caffè', hotel: 'Hotel', store: 'Negozio', stop: 'Fermata', station: 'Stazione' }
+                'US': {
+                    tourist_attraction: 'Tourist Attraction',
+                    cafe: 'Cafe',
+                    hotel: 'Hotel',
+                    store: 'Store',
+                    bus_stop: 'Bus Stop',
+                    railway_station: 'Railway Station'
+                },
+                'FR': {
+                    tourist_attraction: 'Attraction Touristique',
+                    cafe: 'Café',
+                    hotel: 'Hôtel',
+                    store: 'Magasin',
+                    bus_stop: 'Arrêt de Bus',
+                    railway_station: 'Gare'
+                },
+                'DE': {
+                    tourist_attraction: 'Touristenattraktion',
+                    cafe: 'Café',
+                    hotel: 'Hotel',
+                    store: 'Geschäft',
+                    bus_stop: 'Bushaltestelle',
+                    railway_station: 'Bahnhof'
+                },
+                // Add more mappings as needed
             };
             const defaultLang = translations['US'];
             const lang = translations[countryCode] || defaultLang;
@@ -76,8 +96,8 @@
                 <option value="cafe">${lang.cafe}</option>
                 <option value="hotel">${lang.hotel}</option>
                 <option value="store">${lang.store}</option>
-                <option value="stop">${lang.stop}</option>
-                <option value="station">${lang.station}</option>
+                <option value="bus_stop">${lang.bus_stop}</option>
+                <option value="railway_station">${lang.railway_station}</option>
             `;
         }
 
@@ -102,8 +122,8 @@
             markers.push(marker);
         }
 
-        // Fetch valid name for unnamed places using Nominatim
-        async function getValidName(lat, lon) {
+        // Get valid description for unnamed places
+        async function getValidDescription(lat, lon) {
             const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18`;
             const response = await fetch(nominatimUrl);
             const data = await response.json();
@@ -112,54 +132,45 @@
 
         // Fetch nearest places using Overpass API
         async function fetchPlaces(category, lat, lon) {
-            let overpassQuery;
-            if (category === 'tourist_attraction') {
-                overpassQuery = `
-                    [out:json];
-                    (
-                        node["tourism"="attraction"](around:5000,${lat},${lon});
-                        node["tourism"="museum"](around:5000,${lat},${lon});
-                        node["tourism"="viewpoint"](around:5000,${lat},${lon});
-                        node["tourism"="monument"](around:5000,${lat},${lon});
-                    );
-                    out body 8;
-                `;
-            } else {
-                const tag = category === 'store' ? 'shop' :
-                            category === 'stop' ? 'highway' :
-                            category === 'station' ? 'railway' : category;
-                const value = category === 'stop' ? 'bus_stop' :
-                              category === 'station' ? 'station' : undefined;
-                overpassQuery = `
-                    [out:json];
-                    node
-                        ["${tag}${value ? '=' + value : ''}"]
-                        (around:5000,${lat},${lon});
-                    out body 8;
-                `;
-            }
+            const tagMap = {
+                tourist_attraction: 'tourism',
+                cafe: 'amenity=cafe',
+                hotel: 'tourism=hotel',
+                store: 'shop',
+                bus_stop: 'highway=bus_stop',
+                railway_station: 'railway=station'
+            };
+            const overpassQuery = `
+                [out:json];
+                node
+                    ["${tagMap[category].split('=')[0]}"${tagMap[category].includes('=') ? `="${tagMap[category].split('=')[1]}"` : ''}]
+                    (around:5000,${lat},${lon});
+                out body 8;
+            `;
             showLoading(true);
             const response = await fetch('https://overpass-api.de/api/interpreter', {
                 method: 'POST',
                 body: overpassQuery
             });
             const data = await response.json();
-            const elements = data.elements;
-            const places = [];
-            for (const elem of elements) {
+            showLoading(false);
+
+            const fetchedPlaces = data.elements;
+            const results = [];
+            for (let elem of fetchedPlaces) {
                 let name = elem.tags.name || 'unnamed';
                 if (name.toLowerCase() === 'unnamed') {
-                    name = await getValidName(elem.lat, elem.lon);
+                    name = await getValidDescription(elem.lat, elem.lon);
                 }
-                places.push({
+                results.push({
                     name,
                     lat: elem.lat,
                     lon: elem.lon,
                     distance: haversineDistance(lat, lon, elem.lat, elem.lon)
                 });
+                if (results.length >= 8) break;
             }
-            showLoading(false);
-            return places;
+            return results;
         }
 
         // Main logic
@@ -208,7 +219,7 @@
                     document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
 
                     // Translate dropdown
-                    translateDropdown(countryCode);
+                    await translateDropdown(countryCode);
 
                     // Add marker for user's location
                     const distanceToCity = haversineDistance(mygps.lat, mygps.lon, city.lat, city.lon).toFixed(2);
