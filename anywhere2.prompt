@@ -6,10 +6,12 @@ using a html select tag create a drop down menu option 1 tourist attraction
 option 2 cafe
 option 3 hotel
 option 4 store
-option 5 stop
-option 6 station
+option 5 bus stop
+option 6 bus station
 
 ( if necessary, translate the drop menu to the language of the country where $cityname is located)
 once clicked assign the selected option value to $dropdown.
 
 Determine the descriptions of the nearest 8 $dropdown to $mygps . if the description is "unnamed" then search for a valid description using OpenGazeteer ( for example,if option 1 is selected then determine the 8 tourist attraction closest to $mygps)  and assign them to an array $places including their GPS coordinates. whilst the new tags are waiting to be displayed  show a message "Please Wait" . Calculate the distance between each element in $places from $mygps and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from $mygps 
+
+ensure that a hotel is not shown as a  tourist attraction and that when required, the drop down list $dropdown is translated to the language of $cityname
