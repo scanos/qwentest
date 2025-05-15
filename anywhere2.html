@@ -5,21 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Places to See</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        #map { height: 500px; }
+        #map { height: 600px; width: 100%; }
+        #loading { display: none; }
         @media (max-width: 640px) {
             #map { height: 400px; }
         }
-        .leaflet-popup-content { max-width: 200px; }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 font-sans">
     <div class="container mx-auto p-4">
         <h1 id="map-title" class="text-2xl font-bold text-center mb-4">Places to See</h1>
+        <div id="loading" class="text-center text-lg text-gray-600">Please Wait</div>
         <div class="mb-4 flex justify-center">
-            <select id="place-type" class="p-2 border rounded-md w-full sm:w-64">
-                <option value="tourist_office">Tourist Office</option>
+            <select id="category" class="p-2 border rounded-md">
+                <option value="attraction">Attraction</option>
                 <option value="cafe">Cafe</option>
                 <option value="hotel">Hotel</option>
                 <option value="store">Store</option>
@@ -27,247 +29,182 @@
                 <option value="station">Station</option>
             </select>
         </div>
-        <div id="map" class="w-full rounded-lg shadow-lg"></div>
+        <div id="map"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // Initialize variables
+        let mygps = null;
+        let cityname = '';
+        let city = null;
+        let dropdown = 'attraction';
+        let places = [];
+        let map = null;
+        let markers = [];
+
         // Haversine formula to calculate distance in miles
         function haversineDistance(lat1, lon1, lat2, lon2) {
             const R = 3958.8; // Earth's radius in miles
-            const radLat1 = (Math.PI * lat1) / 180;
-            const radLat2 = (Math.PI * lat2) / 180;
-            const deltaLat = ((lat2 - lat1) * Math.PI) / 180;
-            const deltaLon = ((lon2 - lon1) * Math.PI) / 180;
-            const a = Math.sin(deltaLat / 2) ** 2 +
-                      Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLon / 2) ** 2;
+            const rad = Math.PI / 180;
+            const dLat = (lat2 - lat1) * rad;
+            const dLon = (lon2 - lon1) * rad;
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
-        // Translation mappings for dropdown options
-        const translations = {
-            'US': { // English (default)
-                tourist_office: 'Tourist Office',
-                cafe: 'Cafe',
-                hotel: 'Hotel',
-                store: 'Store',
-                stop: 'Stop',
-                station: 'Station'
-            },
-            'FR': { // French
-                tourist_office: 'Office de Tourisme',
-                cafe: 'Café',
-                hotel: 'Hôtel',
-                store: 'Magasin',
-                stop: 'Arrêt',
-                station: 'Gare'
-            },
-            'ES': { // Spanish
-                tourist_office: 'Oficina de Turismo',
-                cafe: 'Cafetería',
-                hotel: 'Hotel',
-                store: 'Tienda',
-                stop: 'Parada',
-                station: 'Estación'
-            },
-            'DE': { // German
-                tourist_office: 'Touristeninformation',
-                cafe: 'Café',
-                hotel: 'Hotel',
-                store: 'Geschäft',
-                stop: 'Haltestelle',
-                station: 'Bahnhof'
-            }
-        };
+        // Show loading message
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Translate dropdown options based on country language
+        async function translateDropdown(countryCode) {
+            const translations = {
+                'US': { attraction: 'Attraction', cafe: 'Cafe', hotel: 'Hotel', store: 'Store', stop: 'Stop', station: 'Station' },
+                'FR': { attraction: 'Attraction', cafe: 'Café', hotel: 'Hôtel', store: 'Magasin', stop: 'Arrêt', station: 'Gare' },
+                'DE': { attraction: 'Sehenswürdigkeit', cafe: 'Café', hotel: 'Hotel', store: 'Geschäft', stop: 'Haltestelle', station: 'Bahnhof' },
+                // Add more mappings as needed
+            };
+            const defaultLang = translations['US'];
+            const lang = translations[countryCode] || defaultLang;
+            const select = document.getElementById('category');
+            select.innerHTML = `
+                <option value="attraction">${lang.attraction}</option>
+                <option value="cafe">${lang.cafe}</option>
+                <option value="hotel">${lang.hotel}</option>
+                <option value="store">${lang.store}</option>
+                <option value="stop">${lang.stop}</option>
+                <option value="station">${lang.station}</option>
+            `;
+        }
 
         // Initialize map
-        const map = L.map('map').setView([0, 0], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+        function initMap(lat, lon) {
+            map = L.map('map').setView([lat, lon], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
 
-        let mygps = null;
-        let cityname = 'Unknown City';
-        let city = null;
-        let dropdown = 'tourist_office';
-        let places = [];
-        let markers = [];
-
-        // Function to update map markers
-        function updateMap() {
-            // Clear existing markers
+        // Clear existing markers
+        function clearMarkers() {
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
-
-            if (mygps) {
-                // Add marker for user's location
-                const distanceToCity = city ? haversineDistance(mygps.lat, mygps.lon, city.lat, city.lon).toFixed(2) : 'N/A';
-                const userMarker = L.marker([mygps.lat, mygps.lon]).addTo(map);
-                userMarker.bindPopup(`My Location<br>Distance to ${cityname}: ${distanceToCity} miles`).openPopup();
-                markers.push(userMarker);
-
-                // Add markers for places
-                places.forEach(place => {
-                    const marker = L.marker([place.lat, place.lon]).addTo(map);
-                    marker.bindPopup(`${place.name}<br>Distance: ${place.distance.toFixed(2)} miles`);
-                    markers.push(marker);
-                });
-            }
-
-            // Update map title
-            document.getElementById('map-title').textContent = `Places to see in ${cityname}`;
         }
 
-        // Function to update dropdown translations
-        function updateDropdown(countryCode) {
-            const select = document.getElementById('place-type');
-            const trans = translations[countryCode] || translations['US'];
-            select.innerHTML = `
-                <option value="tourist_office">${trans.tourist_office}</option>
-                <option value="cafe">${trans.cafe}</option>
-                <option value="hotel">${trans.hotel}</option>
-                <option value="store">${trans.store}</option>
-                <option value="stop">${trans.stop}</option>
-                <option value="station">${trans.station}</option>
-            `;
-            select.value = dropdown;
+        // Add marker with label
+        function addMarker(lat, lon, label) {
+            const marker = L.marker([lat, lon]).addTo(map);
+            marker.bindPopup(label);
+            markers.push(marker);
         }
 
-        // Function to fetch nearby places
-        async function fetchPlaces() {
-            if (!mygps) return;
-
+        // Fetch nearest places using Overpass API
+        async function fetchPlaces(category, lat, lon) {
             const overpassQuery = `
                 [out:json];
                 node
-                    ["${dropdown === 'tourist_office' ? 'tourism' : dropdown === 'cafe' ? 'amenity' : dropdown === 'hotel' ? 'tourism' : dropdown === 'store' ? 'shop' : dropdown === 'stop' ? 'highway' : 'railway'}"="${dropdown === 'tourist_office' ? 'information' : dropdown === 'stop' ? 'bus_stop' : dropdown === 'station' ? 'station' : dropdown}"]
-                    ["name"!~"unnamed",i]
-                    (around:5000,${mygps.lat},${mygps.lon});
-                out center 8;
+                    ["${category === 'attraction' ? 'tourism' : category === 'store' ? 'shop' : category === 'stop' ? 'highway' : category === 'station' ? 'railway' : category}"]
+                    ["name"!~"^$"]
+                    (around:5000,${lat},${lon});
+                out body 8;
             `;
-            try {
-                const response = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST',
-                    body: overpassQuery
-                });
-                const data = await response.json();
-                places = data.elements.map(element => ({
-                    lat: element.lat,
-                    lon: element.lon,
-                    name: element.tags.name,
-                    distance: haversineDistance(mygps.lat, mygps.lon, element.lat, element.lon)
-                }));
-                updateMap();
-            } catch (error) {
-                console.error('Error fetching places:', error);
-            }
+            showLoading(true);
+            const response = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                body: overpassQuery
+            });
+            const data = await response.json();
+            showLoading(false);
+            return data.elements.map(elem => ({
+                name: elem.tags.name || 'Unnamed',
+                lat: elem.lat,
+                lon: elem.lon,
+                distance: haversineDistance(lat, lon, elem.lat, elem.lon)
+            }));
         }
 
-        // Function to handle manual city input
-        async function handleManualCityInput() {
-            const userInput = prompt('Unable to access your location. Please enter a city name (e.g., New York):');
-            if (userInput) {
-                try {
-                    const cityResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(userInput)}&limit=1`);
-                    const cityData = await cityResponse.json();
-                    if (cityData[0]) {
-                        mygps = { lat: parseFloat(cityData[0].lat), lon: parseFloat(cityData[0].lon) };
-                        cityname = cityData[0].display_name.split(',')[0];
-                        city = { lat: mygps.lat, lon: mygps.lon };
-                        map.setView([mygps.lat, mygps.lon], 13);
+        // Main logic
+        async function main() {
+            // Get user's GPS coordinates
+            if (navigator.geolocation) {
+                showLoading(true);
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    mygps = {
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude
+                    };
+                    showLoading(false);
 
-                        // Get country code for translations
-                        const reverseResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&zoom=10`);
-                        const reverseData = await reverseResponse.json();
-                        const countryCode = reverseData.address.country_code ? reverseData.address.country_code.toUpperCase() : 'US';
+                    // Initialize map at user's location
+                    initMap(mygps.lat, mygps.lon);
 
-                        updateDropdown(countryCode);
-                        await fetchPlaces();
-                    } else {
-                        alert('City not found. Using default location (New York City).');
-                        setDefaultLocation();
+                    // Get nearest city
+                    showLoading(true);
+                    let nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&addressdetails=1`;
+                    let response = await fetch(nominatimUrl);
+                    let data = await response.json();
+                    cityname = data.address.city || data.address.town || data.address.village || 'Unknown';
+                    let countryCode = data.address.country_code ? data.address.country_code.toUpperCase() : 'US';
+                    showLoading(false);
+
+                    // If cityname is Unknown, try broader search
+                    if (cityname === 'Unknown') {
+                        showLoading(true);
+                        nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&zoom=10`;
+                        response = await fetch(nominatimUrl);
+                        data = await response.json();
+                        cityname = data.address.city || data.address.town || data.address.village || 'Unknown City';
+                        showLoading(false);
                     }
-                } catch (error) {
-                    console.error('Error with manual city geocoding:', error);
-                    alert('Error finding city. Using default location (New York City).');
-                    setDefaultLocation();
-                }
-            } else {
-                alert('No city entered. Using default location (New York City).');
-                setDefaultLocation();
-            }
-        }
-
-        // Function to set default location (New York City)
-        async function setDefaultLocation() {
-            mygps = { lat: 40.7128, lon: -74.0060 };
-            cityname = 'New York City';
-            city = { lat: 40.7128, lon: -74.0060 };
-            map.setView([mygps.lat, mygps.lon], 13);
-            updateDropdown('US');
-            await fetchPlaces();
-        }
-
-        // Get user's location
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                mygps = { lat: position.coords.latitude, lon: position.coords.longitude };
-                map.setView([mygps.lat, mygps.lon], 13);
-
-                // Reverse geocode to find city
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&zoom=10`);
-                    const data = await response.json();
-                    cityname = data.address.city || data.address.town || data.address.village || 'Unknown City';
-                    const countryCode = data.address.country_code ? data.address.country_code.toUpperCase() : 'US';
 
                     // Get city coordinates
-                    const cityResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityname)}&limit=1`);
-                    const cityData = await cityResponse.json();
-                    if (cityData[0]) {
-                        city = { lat: parseFloat(cityData[0].lat), lon: parseFloat(cityData[0].lon) };
-                    }
+                    showLoading(true);
+                    nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityname)}&limit=1`;
+                    response = await fetch(nominatimUrl);
+                    data = await response.json();
+                    city = data[0] ? { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) } : mygps;
+                    showLoading(false);
 
-                    // Update dropdown translations
-                    updateDropdown(countryCode);
+                    // Update map title
+                    document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
 
-                    // Fetch initial places
-                    await fetchPlaces();
-                } catch (error) {
-                    console.error('Error with geocoding:', error);
-                    alert('Error finding city. Using default location (New York City).');
-                    setDefaultLocation();
-                }
-            },
-            (error) => {
-                let errorMessage = 'Unable to access location: ';
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage += 'Permission denied. Please allow location access.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage += 'Location information is unavailable.';
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage += 'The request to get location timed out.';
-                        break;
-                    default:
-                        errorMessage += 'An unknown error occurred.';
-                        break;
-                }
-                console.error('Geolocation error:', error);
-                alert(errorMessage);
-                handleManualCityInput();
-            },
-            { timeout: 10000 } // Add timeout to prevent hanging
-        );
+                    // Translate dropdown
+                    await translateDropdown(countryCode);
 
-        // Handle dropdown change
-        document.getElementById('place-type').addEventListener('change', async (e) => {
-            dropdown = e.target.value;
-            await fetchPlaces();
-        });
+                    // Add marker for user's location
+                    const distanceToCity = haversineDistance(mygps.lat, mygps.lon, city.lat, city.lon).toFixed(2);
+                    addMarker(mygps.lat, mygps.lon, `Your Location (${distanceToCity} miles from ${cityname})`);
+
+                    // Handle dropdown change
+                    document.getElementById('category').addEventListener('change', async (e) => {
+                        dropdown = e.target.value;
+                        clearMarkers();
+                        addMarker(mygps.lat, mygps.lon, `Your Location (${distanceToCity} miles from ${cityname})`);
+                        places = await fetchPlaces(dropdown, mygps.lat, mygps.lon);
+                        places.forEach(place => {
+                            addMarker(place.lat, place.lon, `${place.name} (${place.distance.toFixed(2)} miles)`);
+                        });
+                    });
+
+                    // Initial fetch of attractions
+                    places = await fetchPlaces(dropdown, mygps.lat, mygps.lon);
+                    places.forEach(place => {
+                        addMarker(place.lat, place.lon, `${place.name} (${place.distance.toFixed(2)} miles)`);
+                    });
+                }, (error) => {
+                    showLoading(false);
+                    alert('Unable to get location: ' + error.message);
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        }
+
+        // Run main function
+        main();
     </script>
 </body>
 </html>
