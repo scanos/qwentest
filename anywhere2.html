@@ -26,7 +26,7 @@
                 <option value="hotel">Hotel</option>
                 <option value="store">Store</option>
                 <option value="bus_stop">Bus Stop</option>
-                <option value="railway_station">Railway Station</option>
+                <option value="bus_station">Bus Station</option>
             </select>
         </div>
         <div id="map"></div>
@@ -68,7 +68,7 @@
                     hotel: 'Hotel',
                     store: 'Store',
                     bus_stop: 'Bus Stop',
-                    railway_station: 'Railway Station'
+                    bus_station: 'Bus Station'
                 },
                 'FR': {
                     tourist_attraction: 'Attraction Touristique',
@@ -76,7 +76,7 @@
                     hotel: 'Hôtel',
                     store: 'Magasin',
                     bus_stop: 'Arrêt de Bus',
-                    railway_station: 'Gare'
+                    bus_station: 'Gare Routière'
                 },
                 'DE': {
                     tourist_attraction: 'Touristenattraktion',
@@ -84,7 +84,15 @@
                     hotel: 'Hotel',
                     store: 'Geschäft',
                     bus_stop: 'Bushaltestelle',
-                    railway_station: 'Bahnhof'
+                    bus_station: 'Busbahnhof'
+                },
+                'ES': {
+                    tourist_attraction: 'Atracción Turística',
+                    cafe: 'Café',
+                    hotel: 'Hotel',
+                    store: 'Tienda',
+                    bus_stop: 'Parada de Autobús',
+                    bus_station: 'Estación de Autobuses'
                 },
                 // Add more mappings as needed
             };
@@ -97,7 +105,7 @@
                 <option value="hotel">${lang.hotel}</option>
                 <option value="store">${lang.store}</option>
                 <option value="bus_stop">${lang.bus_stop}</option>
-                <option value="railway_station">${lang.railway_station}</option>
+                <option value="bus_station">${lang.bus_station}</option>
             `;
         }
 
@@ -133,17 +141,17 @@
         // Fetch nearest places using Overpass API
         async function fetchPlaces(category, lat, lon) {
             const tagMap = {
-                tourist_attraction: 'tourism',
-                cafe: 'amenity=cafe',
-                hotel: 'tourism=hotel',
-                store: 'shop',
-                bus_stop: 'highway=bus_stop',
-                railway_station: 'railway=station'
+                tourist_attraction: '["tourism"!~"hotel"]',
+                cafe: '["amenity"="cafe"]',
+                hotel: '["tourism"="hotel"]',
+                store: '["shop"]',
+                bus_stop: '["highway"="bus_stop"]',
+                bus_station: '["highway"="bus_station"]'
             };
             const overpassQuery = `
                 [out:json];
                 node
-                    ["${tagMap[category].split('=')[0]}"${tagMap[category].includes('=') ? `="${tagMap[category].split('=')[1]}"` : ''}]
+                    ${tagMap[category]}
                     (around:5000,${lat},${lon});
                 out body 8;
             `;
@@ -157,19 +165,29 @@
 
             const fetchedPlaces = data.elements;
             const results = [];
+            const namePromises = [];
+
             for (let elem of fetchedPlaces) {
                 let name = elem.tags.name || 'unnamed';
                 if (name.toLowerCase() === 'unnamed') {
-                    name = await getValidDescription(elem.lat, elem.lon);
+                    namePromises.push(getValidDescription(elem.lat, elem.lon));
+                } else {
+                    namePromises.push(Promise.resolve(name));
                 }
                 results.push({
-                    name,
                     lat: elem.lat,
                     lon: elem.lon,
                     distance: haversineDistance(lat, lon, elem.lat, elem.lon)
                 });
                 if (results.length >= 8) break;
             }
+
+            // Resolve all names concurrently
+            const names = await Promise.all(namePromises);
+            results.forEach((place, index) => {
+                place.name = names[index];
+            });
+
             return results;
         }
 
