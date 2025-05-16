@@ -8,6 +8,7 @@ option 3 bus stop
 option 4 bus station
 option 5 railway station 
 option 6 historical site
+option 7 church
 
 
 use the following search nominatim search criteria for each option 
@@ -16,7 +17,8 @@ option 2 amenity=cafe
 option 3 highway=bus_stop
 option 4 amenity=bus_station
 option 5 railway=station
-option 6 historical=yes
+option 6 historic=castle
+option 7 amenity=place_of_worship
 
 
 once clicked assign the selected option value to $dropdown.
