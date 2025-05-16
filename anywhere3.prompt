@@ -2,16 +2,9 @@
 
 determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. if $cityname contains "Unknown" then use OpenGazeteer to find a valid value for $cityname. On a responsive html page on an openstreetmap map titled "places to see in' $cityname create a marker and label for $mygps showing the distance of $mygps from $cityname and
 
-using a html select tag create a drop down menu option 1 tourist attraction
-option 2 cafe
-option 3 bus stop
-option 4 bus station
-option 5 railway station 
-option 6 historical site
-option 7 church
 
 
-use the following search nominatim search criteria for each option 
+create a html drop-down list using the the following search nominatim search criteria
 option 1 tourism=attraction
 option 2 amenity=cafe
 option 3 highway=bus_stop
@@ -25,4 +18,3 @@ once clicked assign the selected option value to $dropdown.
 
 Determine the descriptions of the nearest 8 $dropdown to $mygps . if the description is "unnamed" then search for a valid description using OpenGazeteer ( for example,if option 1 is selected then determine the 8 tourist attraction closest to $mygps)  and assign them to an array $places including their GPS coordinates. whilst the new tags are waiting to be displayed  show a message "Please Wait" . Calculate the distance between each element in $places from $mygps and store it in the array $places . create in the openstreetmap map a marker and label for each element of $places based on the lat long co-ordinates for that array element with the label showing the description and miles from $mygps 
 
-ensure that a hotel is not shown as a  tourist attraction and that when required, the drop down list $dropdown is translated to the language of $cityname
