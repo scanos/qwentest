@@ -1,1 +1,5 @@
 I used QWEN but Grok seems to offer a better solution and it can run in Grok artifact 
+
+decided that only use anywhere.html but retain different anywhere prompt files
+
+also created new anywheregps.prompt to use to interrogate/determine coding for gazetteers such as nominatim etc
