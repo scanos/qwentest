@@ -4,10 +4,17 @@ determine the GPS coordinates of my current location from my web browser and ass
 
 using a html select tag create a drop down menu option 1 tourist attraction
 option 2 cafe
-option 3 hotel
-option 4 store
-option 5 bus stop
-option 6 bus station
+option 3 bus stop
+option 4 bus station
+
+
+use the following search nominatin search criteria for each option 
+option 1 tourism=attraction
+option 2 amenity=cafe
+option 3 highway=bus_stop
+option 4 amenity=bus_station
+
+
 
 ( if necessary, translate the drop menu to the language of the country where $cityname is located)
 once clicked assign the selected option value to $dropdown.
