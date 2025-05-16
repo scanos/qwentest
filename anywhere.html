@@ -4,172 +4,232 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Places to See</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; }
-        #map { height: 60vh; width: 100%; }
-        #controls { padding: 10px; text-align: center; }
-        #loading { display: none; text-align: center; font-size: 1.2em; color: #333; }
-        select { padding: 8px; font-size: 1em; margin-bottom: 10px; }
-        @media (max-width: 600px) {
-            #map { height: 50vh; }
-            select { width: 100%; }
+        #map { height: 500px; width: 100%; }
+        #loading { display: none; }
+        @media (max-width: 640px) {
+            #map { height: 400px; }
+            h1 { font-size: 1.5rem; }
         }
     </style>
 </head>
-<body>
-    <div id="controls">
-        <h1 id="map-title">Places to See in Unknown</h1>
-        <select id="place-type" onchange="fetchPlaces()">
+<body class="bg-gray-100 flex flex-col items-center p-4">
+    <h1 id="map-title" class="text-2xl font-bold mb-4">Places to See</h1>
+    <div class="w-full max-w-md mb-4">
+        <select id="place-type" class="w-full p-2 border rounded">
             <option value="tourism=attraction">Tourist Attraction</option>
             <option value="amenity=cafe">Cafe</option>
             <option value="highway=bus_stop">Bus Stop</option>
             <option value="amenity=bus_station">Bus Station</option>
-            <option value="historic=castle">Castle</option>
+            <option value="railway=station">Railway Station</option>
+            <option value="historic=castle">Historic Castle</option>
+            <option value="amenity=place_of_worship">Place of Worship</option>
         </select>
     </div>
-    <div id="loading">Please Wait</div>
-    <div id="map"></div>
+    <div id="loading" class="text-lg font-semibold mb-4">Please Wait</div>
+    <div id="map" class="w-full max-w-4xl rounded shadow"></div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Axios for API requests -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        let mygps = { lat: 40.7128, lon: -74.0060 }; // Fallback location
-        let cityname = "Unknown";
-        let city = { lat: 40.7128, lon: -74.0060 };
-        let places = [];
-        let map, myMarker;
+        // Initialize variables
+        let $mygps = null;
+        let $cityname = "Unknown";
+        let $city = null;
+        let $dropdown = "tourism=attraction";
+        let $places = [];
+        let map, userMarker;
+
+        // Initialize map
+        map = L.map('map').setView([51.505, -0.09], 13); // Default view (London)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
         // Haversine formula to calculate distance in miles
-        function haversineDistance(coord1, coord2) {
+        function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 3958.8; // Earth radius in miles
-            const rad = Math.PI / 180;
-            const dLat = (coord2.lat - coord1.lat) * rad;
-            const dLon = (coord2.lon - coord1.lon) * rad;
-            const a = Math.sin(dLat / 2) ** 2 +
-                      Math.cos(coord1.lat * rad) * Math.cos(coord2.lat * rad) *
-                      Math.sin(dLon / 2) ** 2;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
-        // Initialize map
-        function initMap() {
-            map = L.map('map').setView([mygps.lat, mygps.lon], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
-            }).addTo(map);
+        // Delay function to respect Nominatim's 1 request/second limit
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        // Add or update marker for mygps
-        function updateMyMarker() {
-            if (myMarker) myMarker.remove();
-            const distance = haversineDistance(mygps, city).toFixed(2);
-            myMarker = L.marker([mygps.lat, mygps.lon])
-                .addTo(map)
-                .bindPopup(`My Location<br>${distance} miles from ${cityname}`);
+        // Get user's GPS coordinates
+        function getUserLocation() {
+            return new Promise((resolve, reject) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            $mygps = {
+                                lat: position.coords.latitude,
+                                lon: position.coords.longitude
+                            };
+                            resolve($mygps);
+                        },
+                        error => {
+                            alert("Unable to retrieve location. Please enable location services.");
+                            reject(error);
+                        }
+                    );
+                } else {
+                    alert("Geolocation is not supported by this browser.");
+                    reject(new Error("Geolocation not supported"));
+                }
+            });
         }
 
-        // Get current location
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    pos => {
-                        mygps = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-                        getNearestCity();
-                    },
-                    () => {
-                        console.log("Geolocation denied, using fallback");
-                        getNearestCity();
-                    }
-                );
-            } else {
-                console.log("Geolocation not supported, using fallback");
-                getNearestCity();
-            }
-        }
-
-        // Get nearest city using Nominatim reverse geocoding
-        async function getNearestCity() {
+        // Reverse geocode to find nearest city using Nominatim
+        async function getCityName(coords) {
             try {
-                const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${mygps.lat}&lon=${mygps.lon}&addressdetails=1`;
-                const response = await fetch(url, { headers: { 'User-Agent': 'PlacesToSee/1.0' } });
-                const data = await response.json();
-                cityname = data.address.city || data.address.town || data.address.village || "Unknown";
-                if (cityname === "Unknown") {
-                    // Fallback to broader search if city is unknown
-                    const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=nearby+city&lat=${mygps.lat}&lon=${mygps.lon}&limit=1`;
-                    const searchResponse = await fetch(searchUrl, { headers: { 'User-Agent': 'PlacesToSee/1.0' } });
-                    const searchData = await searchResponse.json();
-                    cityname = searchData[0]?.display_name.split(',')[0] || "Unknown City";
+                const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+                    params: {
+                        format: 'json',
+                        lat: coords.lat,
+                        lon: coords.lon,
+                        addressdetails: 1
+                    }
+                });
+                const address = response.data.address;
+                $cityname = address.city || address.town || address.village || "Unknown";
+                $city = {
+                    lat: parseFloat(response.data.lat),
+                    lon: parseFloat(response.data.lon)
+                };
+                if ($cityname === "Unknown") {
+                    // Fallback to GeoNames
+                    const geoResponse = await axios.get('http://api.geonames.org/findNearbyPlaceNameJSON', {
+                        params: {
+                            lat: coords.lat,
+                            lng: coords.lon,
+                            username: 'demo' // Replace with your GeoNames username
+                        }
+                    });
+                    if (geoResponse.data.geonames && geoResponse.data.geonames.length > 0) {
+                        $cityname = geoResponse.data.geonames[0].name;
+                        $city = {
+                            lat: parseFloat(geoResponse.data.geonames[0].lat),
+                            lon: parseFloat(geoResponse.data.geonames[0].lng)
+                        };
+                    }
                 }
-                // Get city coordinates
-                const cityUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityname)}&limit=1`;
-                const cityResponse = await fetch(cityUrl, { headers: { 'User-Agent': 'PlacesToSee/1.0' } });
-                const cityData = await cityResponse.json();
-                if (cityData[0]) {
-                    city = { lat: parseFloat(cityData[0].lat), lon: parseFloat(cityData[0].lon) };
-                }
-                document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
-                initMap();
-                updateMyMarker();
-                fetchPlaces();
+                document.getElementById('map-title').textContent = `Places to See in ${$cityname}`;
             } catch (error) {
-                console.error("Error fetching city:", error);
-                document.getElementById('map-title').textContent = `Places to See in ${cityname}`;
-                initMap();
-                updateMyMarker();
-                fetchPlaces();
+                console.error("Error fetching city name:", error);
             }
         }
 
-        // Fetch places based on dropdown selection
-        async function fetchPlaces() {
-            const dropdown = document.getElementById('place-type').value;
+        // Get nearest places based on dropdown selection
+        async function getNearestPlaces() {
             document.getElementById('loading').style.display = 'block';
-            places = [];
-            
+            $places = [];
             try {
-                // Use Nominatim search with bounding box for nearby places
-                const bboxSize = 0.1; // Approx 11km at equator
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${dropdown}&lat=${mygps.lat}&lon=${mygps.lon}&bounded=1&viewbox=${mygps.lon - bboxSize},${mygps.lat + bboxSize},${mygps.lon + bboxSize},${mygps.lat - bboxSize}&limit=8`;
-                const response = await fetch(url, { headers: { 'User-Agent': 'PlacesToSee/1.0' } });
-                const data = await response.json();
-
-                for (let place of data) {
-                    let description = place.display_name.split(',')[0] || "Unnamed";
-                    if (description === "Unnamed") {
-                        // Fallback to broader search for description
-                        const detailUrl = `https://nominatim.openstreetmap.org/details?place_id=${place.place_id}&format=json`;
-                        const detailResponse = await fetch(detailUrl, { headers: { 'User-Agent': 'PlacesToSee/1.0' } });
-                        const detailData = await detailResponse.json();
-                        description = detailData.names?.name || detailData.names?.alt_name || "Unknown Place";
+                // Construct Nominatim query
+                const [key, value] = $dropdown.split('=');
+                const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+                    params: {
+                        q: `${key}=${value}`,
+                        format: 'json',
+                        limit: 8,
+                        bounded: 1,
+                        viewbox: `${$mygps.lon - 0.1},${$mygps.lat - 0.1},${$mygps.lon + 0.1},${$mygps.lat + 0.1}`,
+                        addressdetails: 1
                     }
-                    const coords = { lat: parseFloat(place.lat), lon: parseFloat(place.lon) };
-                    const distance = haversineDistance(mygps, coords).toFixed(2);
-                    places.push({ description, coords, distance });
+                });
+                for (let place of response.data) {
+                    let description = place.display_name.split(',')[0].trim();
+                    if (description.toLowerCase() === 'unnamed' || description === '') {
+                        // Fallback to GeoNames
+                        const geoResponse = await axios.get('http://api.geonames.org/findNearbyPlaceNameJSON', {
+                            params: {
+                                lat: place.lat,
+                                lng: place.lon,
+                                username: 'demo' // Replace with your GeoNames username
+                            }
+                        });
+                        description = geoResponse.data.geonames && geoResponse.data.geonames.length > 0
+                            ? geoResponse.data.geonames[0].name
+                            : 'Unknown Place';
+                        await delay(1000); // Respect GeoNames rate limit
+                    }
+                    const coords = {
+                        lat: parseFloat(place.lat),
+                        lon: parseFloat(place.lon)
+                    };
+                    const distance = calculateDistance($mygps.lat, $mygps.lon, coords.lat, coords.lon).toFixed(2);
+                    $places.push({
+                        description: description,
+                        coords: coords,
+                        distance: distance
+                    });
                 }
-
-                // Clear existing place markers
-                map.eachLayer(layer => {
-                    if (layer !== myMarker && layer instanceof L.Marker) layer.remove();
-                });
-
-                // Add markers for places
-                places.forEach(place => {
-                    L.marker([place.coords.lat, place.coords.lon])
-                        .addTo(map)
-                        .bindPopup(`${place.description}<br>${place.distance} miles from My Location`);
-                });
-
             } catch (error) {
                 console.error("Error fetching places:", error);
-            } finally {
-                document.getElementById('loading').style.display = 'none';
+            }
+            document.getElementById('loading').style.display = 'none';
+            updateMap();
+        }
+
+        // Update map with markers
+        function updateMap() {
+            // Clear existing markers except user marker
+            map.eachLayer(layer => {
+                if (layer !== userMarker && layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Add user marker
+            if (userMarker) {
+                map.removeLayer(userMarker);
+            }
+            const distanceToCity = calculateDistance($mygps.lat, $mygps.lon, $city.lat, $city.lon).toFixed(2);
+            userMarker = L.marker([$mygps.lat, $mygps.lon])
+                .addTo(map)
+                .bindPopup(`Your Location<br>${distanceToCity} miles from ${$cityname}`)
+                .openPopup();
+            map.setView([$mygps.lat, $mygps.lon], 13);
+
+            // Add place markers
+            $places.forEach(place => {
+                L.marker([place.coords.lat, place.coords.lon])
+                    .addTo(map)
+                    .bindPopup(`${place.description}<br>${place.distance} miles from you`);
+            });
+        }
+
+        // Handle dropdown change
+        document.getElementById('place-type').addEventListener('change', async (e) => {
+            $dropdown = e.target.value;
+            await getNearestPlaces();
+        });
+
+        // Initialize
+        async function init() {
+            try {
+                await getUserLocation();
+                await getCityName($mygps);
+                await getNearestPlaces();
+            } catch (error) {
+                console.error("Initialization error:", error);
             }
         }
 
-        // Start the process
-        getLocation();
+        init();
     </script>
 </body>
 </html>
