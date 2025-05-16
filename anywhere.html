@@ -27,6 +27,7 @@
                 <option value="bus_station">Bus Station</option>
                 <option value="railway_station">Railway Station</option>
                 <option value="historical_site">Historical Site</option>
+                <option value="church">Church</option>
             </select>
         </div>
         <div id="map"></div>
@@ -68,7 +69,8 @@
                     bus_stop: 'Bus Stop',
                     bus_station: 'Bus Station',
                     railway_station: 'Railway Station',
-                    historical_site: 'Historical Site'
+                    historical_site: 'Historical Site',
+                    church: 'Church'
                 },
                 'FR': {
                     tourist_attraction: 'Attraction Touristique',
@@ -76,7 +78,8 @@
                     bus_stop: 'Arrêt de Bus',
                     bus_station: 'Gare Routière',
                     railway_station: 'Gare',
-                    historical_site: 'Site Historique'
+                    historical_site: 'Château',
+                    church: 'Église'
                 },
                 'DE': {
                     tourist_attraction: 'Touristenattraktion',
@@ -84,15 +87,17 @@
                     bus_stop: 'Bushaltestelle',
                     bus_station: 'Busbahnhof',
                     railway_station: 'Bahnhof',
-                    historical_site: 'Historische Stätte'
+                    historical_site: 'Schloss',
+                    church: 'Kirche'
                 },
-                'ES': {
+ Tucumán                'ES': {
                     tourist_attraction: 'Atracción Turística',
                     cafe: 'Café',
                     bus_stop: 'Parada de Autobús',
                     bus_station: 'Estación de Autobuses',
                     railway_station: 'Estación de Tren',
-                    historical_site: 'Sitio Histórico'
+                    historical_site: 'Castillo',
+                    church: 'Iglesia'
                 },
                 // Add more mappings as needed
             };
@@ -106,6 +111,7 @@
                 <option value="bus_station">${lang.bus_station}</option>
                 <option value="railway_station">${lang.railway_station}</option>
                 <option value="historical_site">${lang.historical_site}</option>
+                <option value="church">${lang.church}</option>
             `;
         }
 
@@ -146,7 +152,8 @@
                 bus_stop: '["highway"="bus_stop"]',
                 bus_station: '["amenity"="bus_station"]',
                 railway_station: '["railway"="station"]',
-                historical_site: '["historical"="yes"]'
+                historical_site: '["historic"="castle"]',
+                church: '["amenity"="place_of_worship"]'
             };
             const overpassQuery = `
                 [out:json];
