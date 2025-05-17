@@ -1,7 +1,9 @@
 
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. if $cityname contains "Unknown" then use OpenGazeteer to find a valid value for $cityname. On a responsive html page on an openstreetmap map titled "places to see in' $cityname 
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. if $cityname contains "Unknown" then use OpenGazeteer to find a valid value for $cityname. On a responsive html page on a titled "places to see in' $cityname 
 
-using a gazeteer ,based on their proximity to $mygps, and matching the tag tourism=attraction , display the closest 8 locations in a html table showing their description,GPS,and distance from $mygps
+next,using a gazeteer ,based on their proximity to $mygps, and matching the tag tourism=attraction , display the closest 8 locations in a html table showing their description,GPS,and distance from $mygps
+
+if tourism=attraction returns no locations then use another tag to locate tourist attractions and display on the html table 
  
 
