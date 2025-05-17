@@ -1,144 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nearby Places</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; max-width: 800px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .error { color: red; }
-        .loading { color: blue; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nearby Places</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; max-width: 800px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    #status { margin-bottom: 20px; }
+    #error { color: red; }
+  </style>
 </head>
 <body>
-    <h2>Nearby Places within 1 Mile</h2>
-    <p id="status">Requesting location...</p>
-    <table id="placesTable" style="display: none;">
-        <thead>
-            <tr>
-                <th>Tag</th>
-                <th>Description</th>
-                <th>Distance (miles)</th>
-            </tr>
-        </thead>
-        <tbody id="placesBody"></tbody>
-    </table>
+  <h1>Nearby Places within 10 Miles</h1>
+  <div id="status">Fetching your location...</div>
+  <div id="error"></div>
+  <table id="placesTable" style="display: none;">
+    <thead>
+      <tr>
+        <th>Tag</th>
+        <th>Description</th>
+        <th>Distance (miles)</th>
+      </tr>
+    </thead>
+    <tbody id="placesBody"></tbody>
+  </table>
 
-    <script>
-        // Variable to store GPS coordinates
-        let mygps = null;
+  <script>
+    // Variable to store GPS coordinates
+    let mygps = null;
 
-        // Haversine formula to calculate distance between two points in miles
-        function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 3958.8; // Earth's radius in miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
+    // Function to calculate distance using Haversine formula
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 3958.8; // Earth's radius in miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
 
-        // Update status message
-        function updateStatus(message, isError = false) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = isError ? 'error' : 'loading';
-        }
+    // Function to update status message
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+    }
 
-        // Display places in table
-        function displayPlaces(places) {
-            const table = document.getElementById('placesTable');
-            const tbody = document.getElementById('placesBody');
-            tbody.innerHTML = ''; // Clear existing rows
+    // Function to show error message
+    function showError(message) {
+      document.getElementById('error').textContent = message;
+    }
 
-            places.forEach(place => {
-                const row = document.createElement('tr');
-                const tag = place.tag || 'N/A';
-                const description = place.display_name || 'No description';
-                const distance = place.distance.toFixed(2);
-                row.innerHTML = `
-                    <td>${tag}</td>
-                    <td>${description}</td>
-                    <td>${distance}</td>
-                `;
-                tbody.appendChild(row);
-            });
+    // Function to render table with places
+    function renderTable(places) {
+      const tbody = document.getElementById('placesBody');
+      tbody.innerHTML = ''; // Clear existing rows
+      places.forEach(place => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${place.tag || 'N/A'}</td>
+          <td>${place.display_name}</td>
+          <td>${place.distance.toFixed(2)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+      document.getElementById('placesTable').style.display = 'table';
+    }
 
-            table.style.display = 'table';
-            updateStatus('Places loaded successfully.');
-        }
+    // Step 1: Get GPS coordinates
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          mygps = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+          updateStatus(`Location acquired: (${mygps.latitude}, ${mygps.longitude}). Fetching nearby places...`);
 
-        // Fetch nearby places using Nominatim
-        async function fetchNearbyPlaces(lat, lon) {
-            try {
-                // Nominatim API query for nearby places within ~1 mile (1609 meters)
-                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=50&lat=${lat}&lon=${lon}&radius=1609`;
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'Grok3-NearbyPlaces/1.0' }
-                });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          // Step 2: Query Nominatim API
+          const lat = mygps.latitude;
+          const lon = mygps.longitude;
+          // Bounding box for 10-mile radius (approx 0.15 degrees at mid-latitudes)
+          const delta = 0.15;
+          const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1` +
+                     `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}` +
+                     `&q=[place]&accept-language=en`;
 
-                const data = await response.json();
-
-                // Process and filter places
-                const places = data
-                    .map(item => {
-                        const lat2 = parseFloat(item.lat);
-                        const lon2 = parseFloat(item.lon);
-                        const distance = haversineDistance(lat, lon, lat2, lon2);
-                        return {
-                            tag: item.category ? `${item.category}=${item.type}` : 'N/A',
-                            display_name: item.display_name,
-                            distance: distance,
-                            lat: lat2,
-                            lon: lon2
-                        };
-                    })
-                    .filter(place => place.distance <= 1) // Within 1 mile
-                    .sort((a, b) => a.distance - b.distance) // Sort by distance
-                    .slice(0, 8); // Take top 8
-
-                if (places.length === 0) {
-                    updateStatus('No places found within 1 mile.', true);
-                    return;
-                }
-
-                displayPlaces(places);
-            } catch (error) {
-                updateStatus(`Error fetching places: ${error.message}`, true);
+          fetch(url, {
+            headers: {
+              'User-Agent': 'NearbyPlacesApp/1.0 (contact: user@example.com)'
             }
-        }
-
-        // Get user's location
-        function getLocation() {
-            if (!navigator.geolocation) {
-                updateStatus('Geolocation is not supported by your browser.', true);
+          })
+            .then(response => {
+              if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              return response.json();
+            })
+            .then(data => {
+              if (data.length === 0) {
+                showError('No places found within 10 miles.');
+                updateStatus('');
                 return;
-            }
+              }
 
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    mygps = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    };
-                    updateStatus(`Location acquired: (${mygps.latitude}, ${mygps.longitude})`);
-                    fetchNearbyPlaces(mygps.latitude, mygps.longitude);
-                },
-                error => {
-                    updateStatus(`Unable to retrieve location: ${error.message}`, true);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
+              // Step 3: Process and sort places by distance
+              const places = data.map(item => ({
+                tag: item.type || 'N/A',
+                display_name: item.display_name,
+                latitude: parseFloat(item.lat),
+                longitude: parseFloat(item.lon),
+                distance: calculateDistance(lat, lon, parseFloat(item.lat), parseFloat(item.lon))
+              }))
+              .filter(place => place.distance <= 10) // Ensure within 10 miles
+              .sort((a, b) => a.distance - b.distance) // Sort by distance
+              .slice(0, 8); // Limit to 8 results
+
+              if (places.length === 0) {
+                showError('No valid places found within 10 miles.');
+                updateStatus('');
+                return;
+              }
+
+              // Step 4: Render the table
+              renderTable(places);
+              updateStatus('Places loaded successfully.');
+            })
+            .catch(error => {
+              showError(`Error fetching places: ${error.message}`);
+              updateStatus('');
+            });
+        },
+        error => {
+          showError('Failed to get location. Please allow location access and try again.');
+          updateStatus('');
         }
-
-        // Initialize
-        getLocation();
-    </script>
+      );
+    } else {
+      showError('Geolocation is not supported by your browser.');
+      updateStatus('');
+    }
+  </script>
 </body>
 </html>
