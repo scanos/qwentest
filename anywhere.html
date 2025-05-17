@@ -14,8 +14,6 @@
         <table id="places-table" class="w-full border-collapse hidden">
             <thead>
                 <tr class="bg-gray-200">
-                    <th class="border p-2">Latitude</th>
-                    <th class="border p-2">Longitude</th>
                     <th class="border p-2">Description</th>
                     <th class="border p-2">Distance (miles)</th>
                 </tr>
@@ -51,8 +49,8 @@
         // Update location info
         function updateLocationInfo() {
             document.getElementById('location-info').innerHTML = `
-                <p><strong>Your Location:</strong> (${$mygps.lat}, ${$mygps.lon})</p>
-                <p><strong>Nearest City:</strong> ${$cityname} (${$city.lat}, ${$city.lon})</p>
+                <p><strong>Your Location:</strong> (${$mygps.lat.toFixed(6)}, ${$mygps.lon.toFixed(6)})</p>
+                <p><strong>Nearest City:</strong> ${$cityname} (${$city.lat.toFixed(6)}, ${$city.lon.toFixed(6)})</p>
             `;
         }
 
@@ -60,11 +58,14 @@
         function populateTable() {
             const tbody = document.getElementById('places-body');
             tbody.innerHTML = '';
+            if ($places.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="border p-2 text-center">No places found nearby.</td></tr>';
+                document.getElementById('places-table').classList.remove('hidden');
+                return;
+            }
             $places.forEach(place => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td class="border p-2">${place.lat.toFixed(6)}</td>
-                    <td class="border p-2">${place.lon.toFixed(6)}</td>
                     <td class="border p-2">${place.description}</td>
                     <td class="border p-2">${place.distance.toFixed(2)}</td>
                 `;
@@ -131,20 +132,23 @@
 
         // Nominatim search for nearest 8 places
         async function getNearestPlaces(lat, lon) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1&viewbox=${lon-0.5},${lat-0.5},${lon+0.5},${lat+0.5}&q=*`;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1&viewbox=${lon-1},${lat-1},${lon+1},${lat+1}&q=[amenity],[shop],[tourism],[leisure]`;
             try {
                 const response = await fetch(url, {
                     headers: { 'User-Agent': 'NearestPlacesFinder/1.0' }
                 });
                 const data = await response.json();
+                if (!Array.isArray(data)) {
+                    console.error('Nominatim response is not an array:', data);
+                    return [];
+                }
                 return data.map(item => ({
-                    lat: parseFloat(item.lat),
-                    lon: parseFloat(item.lon),
                     description: item.display_name,
                     distance: haversineDistance(lat, lon, parseFloat(item.lat), parseFloat(item.lon))
                 }));
             } catch (error) {
-                throw new Error('Error fetching places: ' + error.message);
+                console.error('Error fetching places:', error);
+                return [];
             }
         }
 
@@ -168,7 +172,7 @@
                 $places = await getNearestPlaces($mygps.lat, $mygps.lon);
 
                 // Step 5: Update UI
-                updateStatus('Done!');
+                updateStatus($places.length > 0 ? 'Done!' : 'No places found nearby.');
                 updateLocationInfo();
                 populateTable();
             } catch (error) {
