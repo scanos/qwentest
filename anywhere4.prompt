@@ -1,7 +1,7 @@
 
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. if $cityname contains "Unknown" then use OpenGazeteer to find a valid value for $cityname. On a responsive html page on a titled "places to see in' $cityname 
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps .  when $mygps has a value with valid GPS co-ordinates then list on a single responsive html page the 8 closest gazeteer entries to $mygps, including gazetteer entry type and description 
 
-when $mygps has received proper GPS co-ordinate s ,using a gazeteer ,based on their proximity to $mygps, list the closest gazeteer entries , including entry type and description 
+
  
 
