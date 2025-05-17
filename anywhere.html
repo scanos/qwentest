@@ -59,7 +59,7 @@
             const tbody = document.getElementById('places-body');
             tbody.innerHTML = '';
             if ($places.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" class="border p-2 text-center">No places found nearby.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="2" class="border p-2 text-center">No places or nodes found nearby.</td></tr>';
                 document.getElementById('places-table').classList.remove('hidden');
                 return;
             }
@@ -74,6 +74,13 @@
             document.getElementById('places-table').classList.remove('hidden');
         }
 
+        // Validate GPS coordinates
+        function isValidGps(lat, lon) {
+            return lat !== null && lon !== null &&
+                   lat >= -90 && lat <= 90 &&
+                   lon >= -180 && lon <= 180;
+        }
+
         // Get user's GPS coordinates
         function getUserLocation() {
             return new Promise((resolve, reject) => {
@@ -84,7 +91,11 @@
                     position => {
                         $mygps.lat = position.coords.latitude;
                         $mygps.lon = position.coords.longitude;
-                        resolve();
+                        if (isValidGps($mygps.lat, $mygps.lon)) {
+                            resolve();
+                        } else {
+                            reject('Invalid GPS coordinates received');
+                        }
                     },
                     error => reject('Unable to retrieve your location: ' + error.message)
                 );
@@ -130,9 +141,9 @@
             }
         }
 
-        // Nominatim search for nearest 8 places
+        // Nominatim search for nearest 8 places and nodes
         async function getNearestPlaces(lat, lon) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1&viewbox=${lon-1},${lat-1},${lon+1},${lat+1}&q=[amenity],[shop],[tourism],[leisure]`;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1&viewbox=${lon-1},${lat-1},${lon+1},${lat+1}&q=[amenity],[shop],[tourism],[leisure],[place]`;
             try {
                 const response = await fetch(url, {
                     headers: { 'User-Agent': 'NearestPlacesFinder/1.0' }
@@ -155,7 +166,7 @@
         // Main function to execute the workflow
         async function main() {
             try {
-                // Step 1: Get user's location
+                // Step 1: Get and validate user's location
                 updateStatus('Retrieving your location...');
                 await getUserLocation();
 
@@ -167,12 +178,15 @@
                 updateStatus('Retrieving city coordinates...');
                 $city = await getCityCoordinates($cityname);
 
-                // Step 4: Get nearest 8 places
-                updateStatus('Finding nearby places...');
+                // Step 4: Get nearest 8 places (only if $mygps is valid)
+                updateStatus('Finding nearby places and nodes...');
+                if (!isValidGps($mygps.lat, $mygps.lon)) {
+                    throw new Error('Invalid GPS coordinates');
+                }
                 $places = await getNearestPlaces($mygps.lat, $mygps.lon);
 
                 // Step 5: Update UI
-                updateStatus($places.length > 0 ? 'Done!' : 'No places found nearby.');
+                updateStatus($places.length > 0 ? 'Done!' : 'No places or nodes found nearby.');
                 updateLocationInfo();
                 populateTable();
             } catch (error) {
