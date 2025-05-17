@@ -1,195 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Places to See</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Closest Gazetteer Entries</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl">
-        <h1 id="page-title" class="text-2xl font-bold text-center mb-4">Places to See</h1>
-        <div id="status" class="text-center text-gray-600 mb-4">Fetching your location...</div>
-        <div id="content" class="space-y-4"></div>
+  <div class="max-w-4xl w-full bg-white shadow-lg rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-center mb-4">8 Closest Gazetteer Entries</h1>
+    <p id="status" class="text-center text-gray-600 mb-4">Requesting location...</p>
+    <div id="results" class="hidden">
+      <p id="coords" class="text-center text-gray-800 mb-4"></p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="p-2 border">Name</th>
+              <th class="p-2 border">Type</th>
+              <th class="p-2 border">Description</th>
+              <th class="p-2 border">Distance (km)</th>
+            </tr>
+          </thead>
+          <tbody id="entries"></tbody>
+        </table>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // GeoNames API username (replace with your own)
-        const GEONAMES_USERNAME = 'YOUR_GEONAMES_USERNAME'; // Get one at http://www.geonames.org
+  <script>
+    // Sample gazetteer dataset (replace with real API/data in production)
+    const gazetteer = [
+      { name: "Central Park", lat: 40.7829, lon: -73.9654, type: "Park", description: "Large public park in Manhattan, New York City." },
+      { name: "Eiffel Tower", lat: 48.8584, lon: 2.2945, type: "Monument", description: "Iconic iron lattice tower in Paris, France." },
+      { name: "Mount Fuji", lat: 35.3606, lon: 138.7274, type: "Mountain", description: "Active stratovolcano and Japan's highest peak." },
+      { name: "Sydney Opera House", lat: -33.8568, lon: 151.2153, type: "Cultural", description: "Performing arts center in Sydney, Australia." },
+      { name: "Grand Canyon", lat: 36.1069, lon: -112.1129, type: "Natural Feature", description: "Steep-sided canyon carved by the Colorado River." },
+      { name: "Big Ben", lat: 51.5007, lon: -0.1246, type: "Monument", description: "Nickname for the Great Bell in the Elizabeth Tower, London." },
+      { name: "Machu Picchu", lat: -13.1631, lon: -72.5450, type: "Historical Site", description: "15th-century Inca city in Peru." },
+      { name: "Taj Mahal", lat: 27.1751, lon: 78.0421, type: "Monument", description: "Ivory-white marble mausoleum in Agra, India." },
+      { name: "Golden Gate Bridge", lat: 37.8199, lon: -122.4783, type: "Bridge", description: "Suspension bridge in San Francisco, California." },
+      { name: "Colosseum", lat: 41.8902, lon: 12.4922, type: "Historical Site", description: "Ancient amphitheater in Rome, Italy." }
+    ];
 
-        // Initialize variables
-        let $mygps = null;
-        let $cityname = '';
-        let $city = null;
+    // Haversine formula to calculate distance between two points (in kilometers)
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Earth's radius in kilometers
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
 
-        // Function to calculate distance using Haversine formula (in km)
-        function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Earth's radius in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
+    // Get user's GPS coordinates
+    let $mygps = null;
+    const status = document.getElementById('status');
+    const results = document.getElementById('results');
+    const coords = document.getElementById('coords');
+    const entries = document.getElementById('entries');
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          $mygps = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          };
+          status.textContent = 'Location retrieved successfully!';
+          coords.textContent = `Your Coordinates: Latitude ${$mygps.lat.toFixed(4)}, Longitude ${$mygps.lon.toFixed(4)}`;
+          results.classList.remove('hidden');
+
+          // Calculate distances and sort gazetteer entries
+          const entriesWithDistance = gazetteer.map(entry => ({
+            ...entry,
+            distance: haversineDistance($mygps.lat, $mygps.lon, entry.lat, entry.lon)
+          })).sort((a, b) => a.distance - b.distance).slice(0, 8);
+
+          // Display the 8 closest entries
+          entries.innerHTML = entriesWithDistance.map(entry => `
+            <tr>
+              <td class="p-2 border">${entry.name}</td>
+              <td class="p-2 border">${entry.type}</td>
+              <td class="p-2 border">${entry.description}</td>
+              <td class="p-2 border">${entry.distance.toFixed(2)} km</td>
+            </tr>
+          `).join('');
+        },
+        (error) => {
+          status.textContent = 'Error: Unable to retrieve location. Please allow location access or try again.';
+          console.error('Geolocation error:', error);
         }
-
-        // Function to update the page content
-        function updatePage(message, isError = false) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.classList.toggle('text-red-600', isError);
-            status.classList.toggle('text-gray-600', !isError);
-        }
-
-        // Function to fetch nearest city using GeoNames
-        async function getNearestCity(lat, lng) {
-            try {
-                const response = await fetch(`http://api.geonames.org/findNearbyPlaceNameJSON?lat=${lat}&lng=${lng}&username=${GEONAMES_USERNAME}`);
-                const data = await response.json();
-                if (data.geonames && data.geonames.length > 0) {
-                    const place = data.geonames[0];
-                    if (place.fcl === 'P') { // Check if it's a populated place
-                        return place.name;
-                    }
-                }
-                // Fallback to findNearbyJSON if no valid city found
-                const fallbackResponse = await fetch(`http://api.geonames.org/findNearbyJSON?lat=${lat}&lng=${lng}&username=${GEONAMES_USERNAME}`);
-                const fallbackData = await fallbackResponse.json();
-                if (fallbackData.geonames && fallbackData.geonames.length > 0) {
-                    return fallbackData.geonames[0].name;
-                }
-                return 'Unknown';
-            } catch (error) {
-                console.error('Error fetching nearest city:', error);
-                return 'Unknown';
-            }
-        }
-
-        // Function to get city coordinates
-        async function getCityCoordinates(cityName) {
-            try {
-                const response = await fetch(`http://api.geonames.org/searchJSON?q=${encodeURIComponent(cityName)}&maxRows=1&username=${GEONAMES_USERNAME}`);
-                const data = await response.json();
-                if (data.geonames && data.geonames.length > 0) {
-                    const place = data.geonames[0];
-                    return { latitude: parseFloat(place.lat), longitude: parseFloat(place.lng) };
-                }
-                return null;
-            } catch (error) {
-                console.error('Error fetching city coordinates:', error);
-                return null;
-            }
-        }
-
-        // Function to fetch nearby gazetteer entries
-        async function getNearbyPlaces(lat, lng) {
-            try {
-                const response = await fetch(`http://api.geonames.org/findNearbyJSON?lat=${lat}&lng=${lng}&radius=50&maxRows=10&username=${GEONAMES_USERNAME}`);
-                const data = await response.json();
-                if (data.geonames) {
-                    // Sort by distance (GeoNames may not always sort perfectly)
-                    return data.geonames
-                        .map(place => ({
-                            name: place.name,
-                            type: `${place.fclName} (${place.fcode})`,
-                            description: place.name + (place.alternateNames ? `; Alt: ${place.alternateNames}` : ''),
-                            latitude: parseFloat(place.lat),
-                            longitude: parseFloat(place.lng),
-                            distance: place.distance ? parseFloat(place.distance) : haversineDistance(lat, lng, place.lat, place.lng)
-                        }))
-                        .sort((a, b) => a.distance - b.distance);
-                }
-                return [];
-            } catch (error) {
-                console.error('Error fetching nearby places:', error);
-                return [];
-            }
-        }
-
-        // Function to render places on the page
-        function renderPlaces(places) {
-            const content = document.getElementById('content');
-            content.innerHTML = '';
-            if (places.length === 0) {
-                content.innerHTML = '<p class="text-gray-600">No nearby places found.</p>';
-                return;
-            }
-            places.forEach(place => {
-                const placeDiv = document.createElement('div');
-                placeDiv.className = 'border-b py-2';
-                placeDiv.innerHTML = `
-                    <h3 class="text-lg font-semibold">${place.name}</h3>
-                    <p><strong>Type:</strong> ${place.type}</p>
-                    <p><strong>Description:</strong> ${place.description}</p>
-                    <p><strong>Distance:</strong> ${place.distance.toFixed(2)} km</p>
-                    <p><strong>Coordinates:</strong> (${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)})</p>
-                `;
-                content.appendYUChild(placeDiv);
-            });
-        }
-
-        // Main function to handle geolocation and data fetching
-        async function init() {
-            if (!navigator.geolocation) {
-                updatePage('Geolocation is not supported by this browser.', true);
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    // Step 1: Assign user's GPS coordinates to $mygps
-                    $mygps = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    };
-                    updatePage(`Your location: (${$mygps.latitude.toFixed(4)}, ${$mygps.longitude.toFixed(4)})`);
-
-                    // Step 2: Get nearest city
-                    $cityname = await getNearestCity($mygps.latitude, $mygps.longitude);
-                    if ($cityname === 'Unknown') {
-                        // Already attempted fallback in getNearestCity
-                        updatePage('Unable to determine nearest city.', true);
-                        return;
-                    }
-
-                    // Step 3: Get city coordinates
-                    $city = await getCityCoordinates($cityname);
-                    if (!$city) {
-                        updatePage('Unable to get coordinates for the city.', true);
-                        return;
-                    }
-
-                    // Update page title
-                    document.getElementById('page-title').textContent = `Places to See in ${$cityname}`;
-
-                    // Step 4: Get nearby gazetteer entries
-                    const places = await getNearbyPlaces($mygps.latitude, $mygps.longitude);
-                    renderPlaces(places);
-                },
-                (error) => {
-                    let message = 'Error getting location: ';
-                    switch (error.code) {
-                        case error.PERMISSION_DENIED:
-                            message += 'User denied the request for Geolocation.';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            message += 'Location information is unavailable.';
-                            break;
-                        case error.TIMEOUT:
-                            message += 'The request to get user location timed out.';
-                            break;
-                        default:
-                            message += 'An unknown error occurred.';
-                            break;
-                    }
-                    updatePage(message, true);
-                }
-            );
-        }
-
-        // Start the process
-        init();
-    </script>
+      );
+    } else {
+      status.textContent = 'Error: Geolocation is not supported by your browser.';
+    }
+  </script>
 </body>
 </html>
