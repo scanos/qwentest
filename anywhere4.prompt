@@ -2,7 +2,8 @@
 
 determine the GPS coordinates of my current location from my web browser and assign to variable $mygps then  determine the nearest city to $mygps  and assign it to $cityname and determine the GPS coordinates of $cityname and assign to a variable $city. if $cityname contains "Unknown" then use OpenGazeteer to find a valid value for $cityname. 
 
-using nominitem determine the descriptions of the nearest 8 nominitem place-entries closest to $mygps based on their GPS coordinates and show them on a html table showing the description and miles from $mygps 
+
+wait until $mygpd has valid GPS co-ordinates then using nominitam determine the descriptions of the nearest 8 nominitam place-entries and nodes closest to $mygps based on their GPS coordinates and show them on a html table including the description and miles from $mygps 
 
 
 
