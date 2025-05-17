@@ -1,9 +1,6 @@
 
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps 
-
-
-wait until $mygps has valid GPS co-ordinates then using nominitam or another gazetteer determine the descriptions of the nearest 8 gazetteer place-entries and nodes within 1 mile of $mygps based on their GPS coordinates and show them on a html table including the tag, description and distance from $mygps 
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . Wait until $mygps has valid GPS co-ordinates then using nominitam or another gazetteer determine the descriptions of the nearest 8 gazetteer place-entries and nodes within 10 mile of $mygps . wait until the gazetteer search is complete and entries are valid then show each entry on a html table including the tag, description and distance from $mygps 
 
 
 
