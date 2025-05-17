@@ -3,199 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nearest Places Finder</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Nearest Places</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; max-width: 800px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        #status { margin-bottom: 20px; }
+        .error { color: red; }
+    </style>
 </head>
-<body class="bg-gray-100 p-6">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-        <h1 class="text-2xl font-bold mb-4">Nearest Places to Your Location</h1>
-        <div id="status" class="mb-4 text-gray-700">Loading...</div>
-        <div id="location-info" class="mb-4"></div>
-        <table id="places-table" class="w-full border-collapse hidden">
-            <thead>
-                <tr class="bg-gray-200">
-                    <th class="border p-2">Description</th>
-                    <th class="border p-2">Distance (miles)</th>
-                </tr>
-            </thead>
-            <tbody id="places-body"></tbody>
-        </table>
-    </div>
+<body>
+    <h2>Nearest Places to Your Location</h2>
+    <div id="status">Waiting for location...</div>
+    <table id="placesTable">
+        <thead>
+            <tr>
+                <th>Place Description</th>
+                <th>Distance (miles)</th>
+            </tr>
+        </thead>
+        <tbody id="placesBody"></tbody>
+    </table>
 
     <script>
-        // Initialize variables
-        let $mygps = { lat: null, lon: null };
-        let $cityname = '';
-        let $city = { lat: null, lon: null };
-        let $places = [];
+        // Variable to store GPS coordinates
+        let $mygps = null;
 
-        // Haversine formula to calculate distance between two points in miles
+        // Function to calculate distance using Haversine formula (in miles)
         function haversineDistance(lat1, lon1, lat2, lon2) {
             const R = 3958.8; // Earth's radius in miles
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const toRad = x => x * Math.PI / 180;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
-        // Update status message
-        function updateStatus(message) {
-            document.getElementById('status').textContent = message;
-        }
-
-        // Update location info
-        function updateLocationInfo() {
-            document.getElementById('location-info').innerHTML = `
-                <p><strong>Your Location:</strong> (${$mygps.lat.toFixed(6)}, ${$mygps.lon.toFixed(6)})</p>
-                <p><strong>Nearest City:</strong> ${$cityname} (${$city.lat.toFixed(6)}, ${$city.lon.toFixed(6)})</p>
-            `;
-        }
-
-        // Populate the places table
-        function populateTable() {
-            const tbody = document.getElementById('places-body');
-            tbody.innerHTML = '';
-            if ($places.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" class="border p-2 text-center">No places or nodes found nearby.</td></tr>';
-                document.getElementById('places-table').classList.remove('hidden');
-                return;
-            }
-            $places.forEach(place => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="border p-2">${place.description}</td>
-                    <td class="border p-2">${place.distance.toFixed(2)}</td>
-                `;
-                tbody.appendChild(row);
-            });
-            document.getElementById('places-table').classList.remove('hidden');
-        }
-
-        // Validate GPS coordinates
-        function isValidGps(lat, lon) {
-            return lat !== null && lon !== null &&
-                   lat >= -90 && lat <= 90 &&
-                   lon >= -180 && lon <= 180;
-        }
-
-        // Get user's GPS coordinates
-        function getUserLocation() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    reject('Geolocation is not supported by your browser');
-                }
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        $mygps.lat = position.coords.latitude;
-                        $mygps.lon = position.coords.longitude;
-                        if (isValidGps($mygps.lat, $mygps.lon)) {
-                            resolve();
-                        } else {
-                            reject('Invalid GPS coordinates received');
-                        }
-                    },
-                    error => reject('Unable to retrieve your location: ' + error.message)
-                );
-            });
-        }
-
-        // Nominatim reverse geocoding to find nearest city
-        async function getNearestCity(lat, lon) {
-            const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`;
+        // Function to fetch nearby places using Nominatim
+        async function fetchNearbyPlaces(lat, lon) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&q=point_of_interest&lat=${lat}&lon=${lon}&zoom=15&addressdetails=1`;
             try {
                 const response = await fetch(url, {
-                    headers: { 'User-Agent': 'NearestPlacesFinder/1.0' }
+                    headers: {
+                        'User-Agent': 'Grok3-NearestPlaces/1.0 (Contact: support@x.ai)'
+                    }
                 });
-                const data = await response.json();
-                let city = data.address.city || data.address.town || data.address.village || 'Unknown';
-                if (city === 'Unknown') {
-                    // Fallback: Search for nearby cities
-                    const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=place=city&limit=1&bounded=1&viewbox=${lon-0.5},${lat-0.5},${lon+0.5},${lat+0.5}`;
-                    const searchResponse = await fetch(searchUrl, {
-                        headers: { 'User-Agent': 'NearestPlacesFinder/1.0' }
-                    });
-                    const searchData = await searchResponse.json();
-                    city = searchData[0]?.display_name.split(',')[0] || 'Unknown City';
-                }
-                return city;
-            } catch (error) {
-                throw new Error('Error fetching city: ' + error.message);
-            }
-        }
-
-        // Nominatim forward geocoding to get city coordinates
-        async function getCityCoordinates(city) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1&addressdetails=1`;
-            try {
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'NearestPlacesFinder/1.0' }
-                });
-                const data = await response.json();
-                if (data.length === 0) throw new Error('City not found');
-                return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-            } catch (error) {
-                throw new Error('Error fetching city coordinates: ' + error.message);
-            }
-        }
-
-        // Nominatim search for nearest 8 places and nodes
-        async function getNearestPlaces(lat, lon) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1&viewbox=${lon-1},${lat-1},${lon+1},${lat+1}&q=[amenity],[shop],[tourism],[leisure],[place]`;
-            try {
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'NearestPlacesFinder/1.0' }
-                });
-                const data = await response.json();
-                if (!Array.isArray(data)) {
-                    console.error('Nominatim response is not an array:', data);
-                    return [];
-                }
-                return data.map(item => ({
-                    description: item.display_name,
-                    distance: haversineDistance(lat, lon, parseFloat(item.lat), parseFloat(item.lon))
-                }));
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const places = await response.json();
+                return places.map(place => ({
+                    description: place.display_name,
+                    lat: parseFloat(place.lat),
+                    lon: parseFloat(place.lon),
+                    distance: haversineDistance(lat, lon, place.lat, place.lon)
+                })).sort((a, b) => a.distance - b.distance);
             } catch (error) {
                 console.error('Error fetching places:', error);
+                document.getElementById('status').className = 'error';
+                document.getElementById('status').textContent = 'Error fetching nearby places.';
                 return [];
             }
         }
 
-        // Main function to execute the workflow
-        async function main() {
-            try {
-                // Step 1: Get and validate user's location
-                updateStatus('Retrieving your location...');
-                await getUserLocation();
-
-                // Step 2: Get nearest city
-                updateStatus('Finding nearest city...');
-                $cityname = await getNearestCity($mygps.lat, $mygps.lon);
-
-                // Step 3: Get city coordinates
-                updateStatus('Retrieving city coordinates...');
-                $city = await getCityCoordinates($cityname);
-
-                // Step 4: Get nearest 8 places (only if $mygps is valid)
-                updateStatus('Finding nearby places and nodes...');
-                if (!isValidGps($mygps.lat, $mygps.lon)) {
-                    throw new Error('Invalid GPS coordinates');
-                }
-                $places = await getNearestPlaces($mygps.lat, $mygps.lon);
-
-                // Step 5: Update UI
-                updateStatus($places.length > 0 ? 'Done!' : 'No places or nodes found nearby.');
-                updateLocationInfo();
-                populateTable();
-            } catch (error) {
-                updateStatus('Error: ' + error);
+        // Function to update table with places
+        function updateTable(places) {
+            const tbody = document.getElementById('placesBody');
+            tbody.innerHTML = '';
+            if (places.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2">No places found.</td></tr>';
+                return;
             }
+            places.forEach(place => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${place.description}</td>
+                    <td>${place.distance.toFixed(2)}</td>
+                `;
+                tbody.appendChild(row);
+            });
         }
 
-        // Run the main function
-        main();
+        // Get current location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    $mygps = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+                    document.getElementById('status').textContent = 
+                        `Location found: (${$mygps.latitude.toFixed(4)}, ${$mygps.longitude.toFixed(4)})`;
+                    
+                    // Fetch and display nearby places
+                    const places = await fetchNearbyPlaces($mygps.latitude, $mygps.longitude);
+                    updateTable(places);
+                },
+                (error) => {
+                    document.getElementById('status').className = 'error';
+                    document.getElementById('status').textContent = 
+                        `Error getting location: ${error.message}`;
+                }
+            );
+        } else {
+            document.getElementById('status').className = 'error';
+            document.getElementById('status').textContent = 
+                'Geolocation is not supported by this browser.';
+        }
     </script>
 </body>
 </html>
