@@ -3,145 +3,124 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OSM Key-Value Pairs Near Me</title>
+  <title>Nearest OSM Points with Walking Directions</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-    <h1 class="text-2xl font-bold text-center mb-4">Nearby OSM Key-Value Pairs</h1>
-    <div id="status" class="text-center mb-4">
-      <p class="text-gray-600">Fetching your location...</p>
-    </div>
-    <div id="coordinates" class="text-center mb-4 hidden">
-      <p class="text-lg font-semibold">Your GPS Coordinates:</p>
-      <p id="gps-text" class="text-gray-800"></p>
-    </div>
-    <div id="tags" class="max-h-96 overflow-y-auto hidden">
-      <h2 class="text-lg font-semibold mb-2">Nearest 100 Unique Key-Value Pairs:</h2>
-      <ul id="tags-list" class="list-disc pl-5 space-y-1 text-gray-700"></ul>
-    </div>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+  <div class="max-w-4xl w-full bg-white shadow-lg rounded-lg p-6">
+    <h1 class="text-2xl font-bold text-gray-800 mb-4">Nearest OSM Points</h1>
+    <p id="status" class="text-gray-600 mb-4">Fetching your location...</p>
+    <div id="results" class="overflow-x-auto"></div>
   </div>
 
   <script>
-    // Initialize $mygps
-    let $mygps = { latitude: null, longitude: null };
+    // Variable to store user's GPS coordinates
+    let $mygps = { lat: null, lon: null };
 
-    // Function to calculate approximate distance (for sorting, if needed)
-    function getDistance(lat1, lon1, lat2, lon2) {
+    // Function to calculate distance using Haversine formula (in meters)
+    function haversineDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3; // Earth's radius in meters
-      const φ1 = (lat1 * Math.PI) / 180;
-      const φ2 = (lat2 * Math.PI) / 180;
-      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
       const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in meters
+      return R * c;
     }
 
-    // Function to fetch OSM data via Overpass API
-    async function fetchOSMTags(lat, lon) {
-      const radius = 100; // 100 meters
-      const overpassQuery = `
-        [out:json];
-        (
-          node(around:${radius},${lat},${lon});
-          way(around:${radius},${lat},${lon});
-          relation(around:${radius},${lat},${lon});
+    // Function to get user's geolocation
+    function getUserLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            $mygps.lat = position.coords.latitude;
+            $mygps.lon = position.coords.longitude;
+            document.getElementById('status').textContent = `Your location: ${$mygps.lat.toFixed(6)}, ${$mygps.lon.toFixed(6)}`;
+            fetchOSMData();
+          },
+          (error) => {
+            document.getElementById('status').textContent = 'Error: Unable to retrieve your location. Please allow location access.';
+          }
         );
-        out tags;
-      `;
-      const url = 'https://overpass-api.de/api/interpreter';
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          body: overpassQuery
-        });
-        if (!response.ok) throw new Error('Failed to fetch OSM data');
-        const data = await response.json();
-        return data.elements;
-      } catch (error) {
-        throw error;
+      } else {
+        document.getElementById('status').textContent = 'Error: Geolocation is not supported by your browser.';
       }
     }
 
-    // Process tags to get unique key-value pairs
-    function processTags(elements, userLat, userLon) {
-      const tagSet = new Set();
-      const tagsWithDistance = [];
+    // Function to fetch OSM data using Overpass API
+    async function fetchOSMData() {
+      const radius = 1000; // Search radius in meters
+      const overpassQuery = `
+        [out:json];
+        node(around:${radius},${$mygps.lat},${$mygps.lon});
+        out body;
+      `;
 
-      elements.forEach(element => {
-        if (element.tags) {
-          const lat = element.lat || (element.center ? element.center.lat : null);
-          const lon = element.lon || (element.center ? element.center.lon : null);
-          let distance = Infinity;
-          if (lat && lon) {
-            distance = getDistance(userLat, userLon, lat, lon);
-          }
-          for (const [key, value] of Object.entries(element.tags)) {
-            const tagString = `${key}=${value}`;
-            if (!tagSet.has(tagString)) {
-              tagSet.add(tagString);
-              tagsWithDistance.push({ tag: tagString, distance });
-            }
-          }
-        }
-      });
+      try {
+        const response = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: overpassQuery
+        });
+        const data = await response.json();
 
-      // Sort by distance and take top 100
-      return tagsWithDistance
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 100)
-        .map(item => item.tag);
+        // Process OSM nodes
+        const nodes = data.elements
+          .filter(element => element.type === 'node' && element.tags)
+          .map(node => {
+            const keyValue = Object.entries(node.tags)
+              .map(([key, value]) => `${key}=${value}`)
+              .join(', ');
+            return {
+              id: node.id,
+              lat: node.lat,
+              lon: node.lon,
+              keyValue: keyValue || 'No tags',
+              distance: haversineDistance($mygps.lat, $mygps.lon, node.lat, node.lon),
+              directionsUrl: `http://map.project-osrm.org/?z=14&center=${$mygps.lat},${$mygps.lon}&loc=${node.lat},${node.lon}&loc=${$mygps.lat},${$mygps.lon}&hl=en&alt=0&srv=0`
+            };
+          })
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 20); // Get nearest 20
+
+        displayResults(nodes);
+      } catch (error) {
+        document.getElementById('status').textContent = 'Error: Failed to fetch OSM data.';
+      }
     }
 
-    // Display tags in the UI
-    function displayTags(tags) {
-      const tagsList = document.getElementById('tags-list');
-      tagsList.innerHTML = '';
-      tags.forEach(tag => {
-        const li = document.createElement('li');
-        li.textContent = tag;
-        tagsList.appendChild(li);
-      });
-      document.getElementById('tags').classList.remove('hidden');
+    // Function to display results in a table
+    function displayResults(nodes) {
+      const table = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-gray-200">
+              <th class="p-2 border">Key=Value</th>
+              <th class="p-2 border">Distance (meters)</th>
+              <th class="p-2 border">Walking Directions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${nodes.map(node => `
+              <tr class="hover:bg-gray-50">
+                <td class="p-2 border">${node.keyValue}</td>
+                <td class="p-2 border">${node.distance.toFixed(2)}</td>
+                <td class="p-2 border">
+                  <a href="${node.directionsUrl}" target="_blank" class="text-blue-600 hover:underline">Get Directions</a>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('results').innerHTML = table;
     }
 
-    // Handle geolocation
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          $mygps.latitude = position.coords.latitude;
-          $mygps.longitude = position.coords.longitude;
-
-          // Update UI with coordinates
-          document.getElementById('status').classList.add('hidden');
-          document.getElementById('coordinates').classList.remove('hidden');
-          document.getElementById('gps-text').textContent = 
-            `Latitude: ${$mygps.latitude.toFixed(6)}, Longitude: ${$mygps.longitude.toFixed(6)}`;
-
-          try {
-            // Fetch and process OSM tags
-            const elements = await fetchOSMTags($mygps.latitude, $mygps.longitude);
-            const uniqueTags = processTags(elements, $mygps.latitude, $mygps.longitude);
-            displayTags(uniqueTags);
-          } catch (error) {
-            document.getElementById('status').classList.remove('hidden');
-            document.getElementById('status').innerHTML = 
-              `<p class="text-red-600">Error fetching OSM data: ${error.message}</p>`;
-          }
-        },
-        (error) => {
-          document.getElementById('status').classList.remove('hidden');
-          document.getElementById('status').innerHTML = 
-            `<p class="text-red-600">Error getting location: ${error.message}</p>`;
-        }
-      );
-    } else {
-      document.getElementById('status').classList.remove('hidden');
-      document.getElementById('status').innerHTML = 
-        `<p class="text-red-600">Geolocation is not supported by this browser.</p>`;
-    }
+    // Initialize
+    getUserLocation();
   </script>
 </body>
 </html>
