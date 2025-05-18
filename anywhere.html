@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nearest OSM Tourism Key-Value Pairs</title>
+    <title>Nearest OSM Tourism Key-Value Pairs (Excluding Hotels)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Leaflet CSS -->
@@ -13,11 +13,14 @@
         @media (max-width: 640px) {
             #map { height: 300px; }
         }
+        .leaflet-popup-content {
+            max-width: 200px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
     <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-        <h1 class="text-2xl font-bold mb-4 text-center">Nearest OSM Tourism Key-Value Pairs</h1>
+        <h1 class="text-2xl font-bold mb-4 text-center">Nearest OSM Tourism Attractions (Excluding Hotels)</h1>
         <p id="status" class="text-center mb-4">Fetching your location...</p>
         <div id="map" class="w-full mb-4"></div>
         <div id="results" class="text-sm"></div>
@@ -27,6 +30,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let mygps = null;
+        let map = null;
 
         // Function to get user's GPS coordinates
         function getLocation() {
@@ -52,7 +56,7 @@
 
         // Initialize Leaflet map
         function initMap() {
-            const map = L.map('map').setView([mygps.lat, mygps.lon], 13);
+            map = L.map('map').setView([mygps.lat, mygps.lon], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
@@ -62,13 +66,13 @@
 
         // Fetch OSM data using Overpass API
         async function fetchOSMData() {
-            const radius = 1000; // 1000 meters to increase chance of finding tourism features
+            const radius = 1000; // 1000 meters
             const query = `
                 [out:json];
                 (
-                    node["tourism"](around:${radius},${mygps.lat},${mygps.lon});
-                    way["tourism"](around:${radius},${mygps.lat},${mygps.lon});
-                    relation["tourism"](around:${radius},${mygps.lat},${mygps.lon});
+                    node["tourism"]["tourism"!~"hotel"](around:${radius},${mygps.lat},${mygps.lon});
+                    way["tourism"]["tourism"!~"hotel"](around:${radius},${mygps.lat},${mygps.lon});
+                    relation["tourism"]["tourism"!~"hotel"](around:${radius},${mygps.lat},${mygps.lon});
                 );
                 out center tags;
             `;
@@ -89,7 +93,7 @@
         function processOSMData(data) {
             let keyValuePairs = [];
             data.elements.forEach(element => {
-                if (element.tags && element.tags.tourism && element.tags.tourism.trim() !== '') {
+                if (element.tags && element.tags.tourism && element.tags.tourism.trim() !== '' && element.tags.tourism !== 'hotel') {
                     // Use element.center for ways/relations, element.lat/lon for nodes
                     const lat = element.type === 'node' ? element.lat : element.center.lat;
                     const lon = element.type === 'node' ? element.lon : element.center.lon;
@@ -113,10 +117,10 @@
             // Take top 16
             keyValuePairs = keyValuePairs.slice(0, 16);
 
-            // Display results
+            // Display results in list
             const resultsDiv = document.getElementById('results');
             if (keyValuePairs.length === 0) {
-                resultsDiv.innerHTML = '<p>No tourism key-value pairs found within 1000 meters.</p>';
+                resultsDiv.innerHTML = '<p>No tourism attractions (excluding hotels) found within 1000 meters.</p>';
                 return;
             }
 
@@ -127,6 +131,26 @@
             });
             html += '</ul>';
             resultsDiv.innerHTML = html;
+
+            // Add markers and labels to map
+            keyValuePairs.forEach(pair => {
+                const distance = haversineDistance(mygps.lat, mygps.lon, pair.lat, pair.lon).toFixed(2);
+                const popupContent = `
+                    <b>Tourism:</b> ${pair.value}<br>
+                    <b>Name:</b> ${pair.name}<br>
+                    <b>Distance:</b> ${distance} meters
+                `;
+                const marker = L.marker([pair.lat, pair.lon]).addTo(map)
+                    .bindPopup(popupContent);
+                // Add label using divIcon
+                const label = L.divIcon({
+                    className: 'label',
+                    html: `<div style="background-color: white; padding: 2px 5px; border-radius: 3px; border: 1px solid black; white-space: nowrap;">${pair.value}</div>`,
+                    iconSize: [100, 20],
+                    iconAnchor: [50, -10]
+                });
+                L.marker([pair.lat, pair.lon], { icon: label }).addTo(map);
+            });
         }
 
         // Haversine formula to calculate distance between two points
