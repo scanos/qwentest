@@ -3,173 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nearest OSM Tourism Key-Value Pairs (Excluding Hotels)</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Nearest OSM Key-Value Pairs</title>
     <style>
-        #map { height: 400px; }
-        @media (max-width: 640px) {
-            #map { height: 300px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
         }
-        .leaflet-popup-content {
-            max-width: 200px;
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            max-width: 600px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #status {
+            margin-bottom: 20px;
         }
     </style>
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
-    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
-        <h1 class="text-2xl font-bold mb-4 text-center">Nearest OSM Tourism Attractions (Excluding Hotels)</h1>
-        <p id="status" class="text-center mb-4">Fetching your location...</p>
-        <div id="map" class="w-full mb-4"></div>
-        <div id="results" class="text-sm"></div>
-    </div>
+<body>
+    <h1>Find Nearest OSM Key-Value Pairs</h1>
+    <button onclick="getLocation()">Get My Location and OSM Data</button>
+    <p id="status">Click the button to find your location and nearby OSM tags.</p>
+    <table id="results" style="display: none;">
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+    </table>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         let mygps = null;
-        let map = null;
 
-        // Function to get user's GPS coordinates
         function getLocation() {
+            const status = document.getElementById('status');
+            status.textContent = 'Requesting location...';
+
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         mygps = {
-                            lat: position.coords.latitude,
-                            lon: position.coords.longitude
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
                         };
-                        document.getElementById('status').textContent = `Your location: ${mygps.lat.toFixed(6)}, ${mygps.lon.toFixed(6)}`;
-                        initMap();
-                        fetchOSMData();
+                        status.textContent = `Location found: Latitude ${mygps.latitude}, Longitude ${mygps.longitude}`;
+                        fetchOSMData(mygps);
                     },
                     (error) => {
-                        document.getElementById('status').textContent = 'Unable to retrieve location: ' + error.message;
+                        status.textContent = `Error: ${error.message}. Please allow location access.`;
                     }
                 );
             } else {
-                document.getElementById('status').textContent = 'Geolocation is not supported by this browser.';
+                status.textContent = 'Geolocation is not supported by this browser.';
             }
         }
 
-        // Initialize Leaflet map
-        function initMap() {
-            map = L.map('map').setView([mygps.lat, mygps.lon], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-            L.marker([mygps.lat, mygps.lon]).addTo(map)
-                .bindPopup('Your Location').openPopup();
-        }
+        async function fetchOSMData(coords) {
+            const status = document.getElementById('status');
+            status.textContent = 'Fetching OSM data...';
 
-        // Fetch OSM data using Overpass API
-        async function fetchOSMData() {
-            const radius = 1000; // 1000 meters
+            const radius = 1000; // Search radius in meters
             const query = `
                 [out:json];
                 (
-                    node["tourism"]["tourism"!~"hotel"](around:${radius},${mygps.lat},${mygps.lon});
-                    way["tourism"]["tourism"!~"hotel"](around:${radius},${mygps.lat},${mygps.lon});
-                    relation["tourism"]["tourism"!~"hotel"](around:${radius},${mygps.lat},${mygps.lon});
+                    node(around:${radius},${coords.latitude},${coords.longitude});
+                    way(around:${radius},${coords.latitude},${coords.longitude});
+                    relation(around:${radius},${coords.latitude},${coords.longitude});
                 );
-                out center tags;
+                out tags 100;
             `;
-            const url = 'https://overpass-api.de/api/interpreter';
+
             try {
-                const response = await fetch(url, {
+                const response = await fetch('https://overpass-api.de/api/interpreter', {
                     method: 'POST',
                     body: query
                 });
                 const data = await response.json();
-                processOSMData(data);
+                displayResults(data);
             } catch (error) {
-                document.getElementById('results').innerHTML = '<p class="text-red-500">Error fetching OSM data: ' + error.message + '</p>';
+                status.textContent = `Error fetching OSM data: ${error.message}`;
             }
         }
 
-        // Process OSM data and display tourism key-value pairs
-        function processOSMData(data) {
-            let keyValuePairs = [];
+        function displayResults(data) {
+            const status = document.getElementById('status');
+            const table = document.getElementById('results');
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = ''; // Clear previous results
+
+            // Collect unique key-value pairs
+            const uniqueTags = new Set();
             data.elements.forEach(element => {
-                if (element.tags && element.tags.tourism && element.tags.tourism.trim() !== '' && element.tags.tourism !== 'hotel') {
-                    // Use element.center for ways/relations, element.lat/lon for nodes
-                    const lat = element.type === 'node' ? element.lat : element.center.lat;
-                    const lon = element.type === 'node' ? element.lon : element.center.lon;
-                    keyValuePairs.push({
-                        key: 'tourism',
-                        value: element.tags.tourism,
-                        lat: lat,
-                        lon: lon,
-                        name: element.tags.name || 'Unnamed'
+                if (element.tags) {
+                    Object.entries(element.tags).forEach(([key, value]) => {
+                        uniqueTags.add(`${key}=${value}`);
                     });
                 }
             });
 
-            // Sort by distance using Haversine formula
-            keyValuePairs.sort((a, b) => {
-                const distA = haversineDistance(mygps.lat, mygps.lon, a.lat, a.lon);
-                const distB = haversineDistance(mygps.lat, mygps.lon, b.lat, b.lon);
-                return distA - distB;
-            });
-
-            // Take top 16
-            keyValuePairs = keyValuePairs.slice(0, 16);
-
-            // Display results in list
-            const resultsDiv = document.getElementById('results');
-            if (keyValuePairs.length === 0) {
-                resultsDiv.innerHTML = '<p>No tourism attractions (excluding hotels) found within 1000 meters.</p>';
+            // Convert to array and limit to 100
+            const tagsArray = Array.from(uniqueTags).slice(0, 100);
+            if (tagsArray.length === 0) {
+                status.textContent = 'No OSM tags found nearby.';
                 return;
             }
 
-            let html = '<ul class="list-disc pl-5">';
-            keyValuePairs.forEach(pair => {
-                const distance = haversineDistance(mygps.lat, mygps.lon, pair.lat, pair.lon).toFixed(2);
-                html += `<li><strong>tourism</strong>: ${pair.value} (${pair.name}, Approx. ${distance} meters away)</li>`;
+            // Populate table
+            tagsArray.forEach(tag => {
+                const [key, value] = tag.split('=');
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${key}</td><td>${value}</td>`;
+                tbody.appendChild(row);
             });
-            html += '</ul>';
-            resultsDiv.innerHTML = html;
 
-            // Add markers and labels to map
-            keyValuePairs.forEach(pair => {
-                const distance = haversineDistance(mygps.lat, mygps.lon, pair.lat, pair.lon).toFixed(2);
-                const popupContent = `
-                    <b>Tourism:</b> ${pair.value}<br>
-                    <b>Name:</b> ${pair.name}<br>
-                    <b>Distance:</b> ${distance} meters
-                `;
-                const marker = L.marker([pair.lat, pair.lon]).addTo(map)
-                    .bindPopup(popupContent);
-                // Add label using divIcon
-                const label = L.divIcon({
-                    className: 'label',
-                    html: `<div style="background-color: white; padding: 2px 5px; border-radius: 3px; border: 1px solid black; white-space: nowrap;">${pair.value}</div>`,
-                    iconSize: [100, 20],
-                    iconAnchor: [50, -10]
-                });
-                L.marker([pair.lat, pair.lon], { icon: label }).addTo(map);
-            });
+            table.style.display = 'table';
+            status.textContent = `Found ${tagsArray.length} unique key-value pairs.`;
         }
-
-        // Haversine formula to calculate distance between two points
-        function haversineDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000; // Earth's radius in meters
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        // Start the process
-        getLocation();
     </script>
 </body>
 </html>
