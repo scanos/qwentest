@@ -1,6 +1,6 @@
 
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . on a single responsive web page , centred on $mygps ,show the 16 nearest osm key=value pairs where the osm key is tourism
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . on a single responsive web page , centred on $mygps ,show the 16 nearest osm key=value pairs where the osm key is tourism and value is not "hotel". also show the values of these key pairs on an osm map using labels and markers which show description and distance from $mygps
 
 
 
