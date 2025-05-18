@@ -66,7 +66,7 @@
         // Initialize map
         const map = L.map('map').setView([0, 0], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         }).addTo(map);
 
         // Function to update info panel
@@ -98,35 +98,48 @@
         // Fetch OSM data using Overpass API
         function fetchOSMData() {
             const query = `
-                [out:json];
+                [out:json][timeout:25];
                 node(around:100,${mygps.lat},${mygps.lng});
-                out tags 8;
+                out body 8;
             `;
             const url = 'https://overpass-api.de/api/interpreter';
             fetch(url, {
                 method: 'POST',
-                body: query
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'data=' + encodeURIComponent(query)
             })
-                .then(response => response.json())
-                .then(data => {
-                    const nodes = data.elements;
-                    if (nodes.length === 0) {
-                        updateInfo('<p>No OSM nodes found nearby.</p>');
-                        return;
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
                     }
-                    let html = '<ul>';
-                    nodes.forEach((node, index) => {
-                        const tags = node.tags || {};
-                        const tagList = Object.entries(tags)
-                            .map(([key, value]) => `${key}=${value}`)
-                            .join(', ');
-                        html += `<li><strong>Node ${index + 1}:</strong> ${tagList || 'No tags'}</li>`;
-                        L.marker([node.lat, node.lon])
-                            .addTo(map)
-                            .bindPopup(tagList || 'No tags');
-                    });
-                    html += '</ul>';
-                    updateInfo(html);
+                    return response.text();
+                })
+                .then(text => {
+                    try {
+                        const data = JSON.parse(text);
+                        const nodes = data.elements || [];
+                        if (nodes.length === 0) {
+                            updateInfo('<p>No OSM nodes found nearby.</p>');
+                            return;
+                        }
+                        let html = '<ul>';
+                        nodes.forEach((node, index) => {
+                            const tags = node.tags || {};
+                            const tagList = Object.entries(tags)
+                                .map(([key, value]) => `${key}=${value}`)
+                                .join(', ');
+                            html += `<li><strong>Node ${index + 1}:</strong> ${tagList || 'No tags'}</li>`;
+                            L.marker([node.lat, node.lon])
+                                .addTo(map)
+                                .bindPopup(tagList || 'No tags');
+                        });
+                        html += '</ul>';
+                        updateInfo(html);
+                    } catch (e) {
+                        updateInfo(`<p class="error">Error parsing OSM data: ${e.message}. Response: ${text.slice(0, 100)}</p>`);
+                    }
                 })
                 .catch(error => {
                     updateInfo(`<p class="error">Error fetching OSM data: ${error.message}</p>`);
