@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nearest OSM Key-Value Pairs</title>
+    <title>Nearest OSM Tags</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
@@ -15,135 +15,162 @@
         }
         #map {
             flex: 1;
-            min-height: 50%;
+            min-height: 300px;
         }
-        #info {
+        #status {
             padding: 10px;
-            background: #f0f0f0;
-            overflow-y: auto;
-            max-height: 50%;
+            text-align: center;
+            background-color: #f0f0f0;
         }
-        h2 {
-            margin: 0 0 10px;
-            font-size: 1.2em;
-        }
-        ul {
-            margin: 0;
-            padding: 0 0 0 20px;
-        }
-        li {
-            margin-bottom: 10px;
-        }
-        .error {
-            color: red;
-        }
-        @media (min-width: 768px) {
-            body {
-                flex-direction: row;
-            }
-            #map {
-                min-height: 100%;
-                width: 70%;
-            }
-            #info {
-                width: 30%;
-                max-height: 100%;
+        @media (max-width: 600px) {
+            #status {
+                font-size: 14px;
             }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="info">
-        <h2>Nearest OSM Key-Value Pairs</h2>
-        <div id="content">Fetching location...</div>
-    </div>
+    <div id="status">Loading your location...</div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // Variable to store GPS coordinates
-        let mygps = { lat: null, lng: null };
+        let $mygps = { lat: null, lng: null };
 
-        // Initialize map
+        // Initialize the map
         const map = L.map('map').setView([0, 0], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Function to update info panel
-        function updateInfo(content) {
-            document.getElementById('content').innerHTML = content;
+        // Function to update status message
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
         }
 
         // Get user's location
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    mygps.lat = position.coords.latitude;
-                    mygps.lng = position.coords.longitude;
-                    map.setView([mygps.lat, mygps.lng], 15);
-                    L.marker([mygps.lat, mygps.lng])
-                        .addTo(map)
-                        .bindPopup('Your Location')
-                        .openPopup();
-                    fetchOSMData();
+                    $mygps.lat = position.coords.latitude;
+                    $mygps.lng = position.coords.longitude;
+                    map.setView([$mygps.lat, $mygps.lng], 15);
+                    updateStatus(`Location found: ${$mygps.lat.toFixed(4)}, ${$mygps.lng.toFixed(4)}`);
+
+                    // Query Overpass API for nearby OSM nodes with tags
+                    fetchNearbyTags($mygps.lat, $mygps.lng);
                 },
                 (error) => {
-                    updateInfo(`<p class="error">Error: ${error.message}. Please enable location services.</p>`);
+                    updateStatus(`Error getting location: ${error.message}`);
                 }
             );
         } else {
-            updateInfo('<p class="error">Geolocation is not supported by this browser.</p>');
+            updateStatus('Geolocation is not supported by this browser.');
         }
 
-        // Fetch OSM data using Overpass API
-        function fetchOSMData() {
-            const query = `
-                [out:json][timeout:25];
-                node(around:100,${mygps.lat},${mygps.lng});
-                out body 8;
+        // Function to fetch nearby OSM tags using Overpass API
+        async function fetchNearbyTags(lat, lng) {
+            const radius = 1000; // Search radius in meters
+            const overpassQuery = `
+                [out:json];
+                node(around:${radius},${lat},${lng})["access"!~"private|customers"];
+                out tags center 100;
             `;
-            const url = 'https://overpass-api.de/api/interpreter';
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: 'data=' + encodeURIComponent(query)
-            })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! Status: ${response.status}`);
-                    }
-                    return response.text();
-                })
-                .then(text => {
-                    try {
-                        const data = JSON.parse(text);
-                        const nodes = data.elements || [];
-                        if (nodes.length === 0) {
-                            updateInfo('<p>No OSM nodes found nearby.</p>');
-                            return;
-                        }
-                        let html = '<ul>';
-                        nodes.forEach((node, index) => {
-                            const tags = node.tags || {};
-                            const tagList = Object.entries(tags)
-                                .map(([key, value]) => `${key}=${value}`)
-                                .join(', ');
-                            html += `<li><strong>Node ${index + 1}:</strong> ${tagList || 'No tags'}</li>`;
-                            L.marker([node.lat, node.lon])
-                                .addTo(map)
-                                .bindPopup(tagList || 'No tags');
-                        });
-                        html += '</ul>';
-                        updateInfo(html);
-                    } catch (e) {
-                        updateInfo(`<p class="error">Error parsing OSM data: ${e.message}. Response: ${text.slice(0, 100)}</p>`);
-                    }
-                })
-                .catch(error => {
-                    updateInfo(`<p class="error">Error fetching OSM data: ${error.message}</p>`);
+            const overpassUrl = 'https://overpass-api.de/api/interpreter';
+
+            try {
+                const response = await fetch(overpassUrl, {
+                    method: 'POST',
+                    body: `data=${encodeURIComponent(overpassQuery)}`
                 });
+                const data = await response.json();
+
+                if (!data.elements || data.elements.length === 0) {
+                    updateStatus('No OSM tags found nearby.');
+                    return;
+                }
+
+                // Process and sort nodes by distance
+                const nodes = data.elements
+                    .filter(node => node.tags && Object.keys(node.tags).length > 0)
+                    .map(node => ({
+                        lat: node.lat,
+                        lng: node.lon,
+                        tags: node.tags,
+                        distance: getDistance(lat, lng, node.lat, node.lon)
+                    }))
+                    .sort((a, b) => a.distance - b.distance)
+                    .slice(0, 8); // Get 8 nearest
+
+                if (nodes.length === 0) {
+                    updateStatus('No valid OSM tags found nearby.');
+                    return;
+                }
+
+                // Validate tags with TagInfo and display on map
+                await displayTagsOnMap(nodes);
+            } catch (error) {
+                updateStatus(`Error fetching OSM data: ${error.message}`);
+            }
+        }
+
+        // Function to calculate distance between two points (Haversine formula)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Distance in meters
+        }
+
+        // Function to validate tags with TagInfo and display on map
+        async function displayTagsOnMap(nodes) {
+            const tagInfoUrl = 'https://taginfo.openstreetmap.org/api/4/key/values?key=';
+            let displayedCount = 0;
+
+            for (const node of nodes) {
+                // Select the first key=value pair from tags
+                const firstTag = Object.entries(node.tags)[0];
+                if (!firstTag) continue;
+
+                const key = firstTag[0];
+                const value = firstTag[1];
+
+                // Validate tag with TagInfo
+                try {
+                    const response = await fetch(`${tagInfoUrl}${encodeURIComponent(key)}&sortname=count&sortorder=desc`);
+                    const tagData = await response.json();
+
+                    const isValid = tagData.data.some(item => item.value === value && item.count > 0);
+                    if (!isValid) {
+                        console.warn(`Invalid or rare tag: ${key}=${value}`);
+                        continue;
+                    }
+
+                    // Add marker to map
+                    const marker = L.marker([node.lat, node.lng]).addTo(map);
+                    marker.bindPopup(`<b>${key}=${value}</b><br>Distance: ${node.distance.toFixed(0)}m`);
+                    displayedCount++;
+
+                } catch (error) {
+                    console.warn(`Error validating tag ${key}=${value}: ${error.message}`);
+                    continue;
+                }
+            }
+
+            if (displayedCount === 0) {
+                updateStatus('No valid OSM tags could be displayed.');
+            } else {
+                updateStatus(`Displaying ${displayedCount} valid OSM tags.`);
+            }
         }
     </script>
 </body>
