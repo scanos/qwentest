@@ -1,6 +1,6 @@
 
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . on a single responsive web page , centred on $mygps , without repeating unique values,display the nearest 100 osm key=value pairs
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . on a single responsive web page display the nearest 20 osm key=value pairs showing distance from $mygps and for each a URL to a web page which shows walking directions from the location to $mygps
 
 
 
