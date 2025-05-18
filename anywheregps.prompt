@@ -1,3 +1,8 @@
-how would nominatom and opengazeteer tag these comma separated words cafe,bus stop,bus station,tourist attraction,train station, historical site, restaurant 
 
-what are the Spanish equivalents
+
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps .determine the 100 nearest osm key=value pairs and display these in a html table without repeating key=value 
+
+
+
+ 
+
