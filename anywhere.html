@@ -1,146 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nearby Places</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    table { border-collapse: collapse; width: 100%; max-width: 800px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    #status { margin-bottom: 20px; }
-    #error { color: red; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nearest OSM Key-Value Pairs</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #map {
+            flex: 1;
+            min-height: 50%;
+        }
+        #info {
+            padding: 10px;
+            background: #f0f0f0;
+            overflow-y: auto;
+            max-height: 50%;
+        }
+        h2 {
+            margin: 0 0 10px;
+            font-size: 1.2em;
+        }
+        ul {
+            margin: 0;
+            padding: 0 0 0 20px;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        .error {
+            color: red;
+        }
+        @media (min-width: 768px) {
+            body {
+                flex-direction: row;
+            }
+            #map {
+                min-height: 100%;
+                width: 70%;
+            }
+            #info {
+                width: 30%;
+                max-height: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <h1>Nearby Places within 10 Miles</h1>
-  <div id="status">Fetching your location...</div>
-  <div id="error"></div>
-  <table id="placesTable" style="display: none;">
-    <thead>
-      <tr>
-        <th>Tag</th>
-        <th>Description</th>
-        <th>Distance (miles)</th>
-      </tr>
-    </thead>
-    <tbody id="placesBody"></tbody>
-  </table>
+    <div id="map"></div>
+    <div id="info">
+        <h2>Nearest OSM Key-Value Pairs</h2>
+        <div id="content">Fetching location...</div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Variable to store GPS coordinates
+        let mygps = { lat: null, lng: null };
 
-  <script>
-    // Variable to store GPS coordinates
-    let mygps = null;
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
 
-    // Function to calculate distance using Haversine formula
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 3958.8; // Earth's radius in miles
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    // Function to update status message
-    function updateStatus(message) {
-      document.getElementById('status').textContent = message;
-    }
-
-    // Function to show error message
-    function showError(message) {
-      document.getElementById('error').textContent = message;
-    }
-
-    // Function to render table with places
-    function renderTable(places) {
-      const tbody = document.getElementById('placesBody');
-      tbody.innerHTML = ''; // Clear existing rows
-      places.forEach(place => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${place.tag || 'N/A'}</td>
-          <td>${place.display_name}</td>
-          <td>${place.distance.toFixed(2)}</td>
-        `;
-        tbody.appendChild(row);
-      });
-      document.getElementById('placesTable').style.display = 'table';
-    }
-
-    // Step 1: Get GPS coordinates
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          mygps = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          };
-          updateStatus(`Location acquired: (${mygps.latitude}, ${mygps.longitude}). Fetching nearby places...`);
-
-          // Step 2: Query Nominatim API
-          const lat = mygps.latitude;
-          const lon = mygps.longitude;
-          // Bounding box for 10-mile radius (approx 0.15 degrees at mid-latitudes)
-          const delta = 0.15;
-          const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&bounded=1` +
-                     `&viewbox=${lon - delta},${lat + delta},${lon + delta},${lat - delta}` +
-                     `&q=[place]&accept-language=en`;
-
-          fetch(url, {
-            headers: {
-              'User-Agent': 'NearbyPlacesApp/1.0 (contact: user@example.com)'
-            }
-          })
-            .then(response => {
-              if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-              return response.json();
-            })
-            .then(data => {
-              if (data.length === 0) {
-                showError('No places found within 10 miles.');
-                updateStatus('');
-                return;
-              }
-
-              // Step 3: Process and sort places by distance
-              const places = data.map(item => ({
-                tag: item.type || 'N/A',
-                display_name: item.display_name,
-                latitude: parseFloat(item.lat),
-                longitude: parseFloat(item.lon),
-                distance: calculateDistance(lat, lon, parseFloat(item.lat), parseFloat(item.lon))
-              }))
-              .filter(place => place.distance <= 10) // Ensure within 10 miles
-              .sort((a, b) => a.distance - b.distance) // Sort by distance
-              .slice(0, 8); // Limit to 8 results
-
-              if (places.length === 0) {
-                showError('No valid places found within 10 miles.');
-                updateStatus('');
-                return;
-              }
-
-              // Step 4: Render the table
-              renderTable(places);
-              updateStatus('Places loaded successfully.');
-            })
-            .catch(error => {
-              showError(`Error fetching places: ${error.message}`);
-              updateStatus('');
-            });
-        },
-        error => {
-          showError('Failed to get location. Please allow location access and try again.');
-          updateStatus('');
+        // Function to update info panel
+        function updateInfo(content) {
+            document.getElementById('content').innerHTML = content;
         }
-      );
-    } else {
-      showError('Geolocation is not supported by your browser.');
-      updateStatus('');
-    }
-  </script>
+
+        // Get user's location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    mygps.lat = position.coords.latitude;
+                    mygps.lng = position.coords.longitude;
+                    map.setView([mygps.lat, mygps.lng], 15);
+                    L.marker([mygps.lat, mygps.lng])
+                        .addTo(map)
+                        .bindPopup('Your Location')
+                        .openPopup();
+                    fetchOSMData();
+                },
+                (error) => {
+                    updateInfo(`<p class="error">Error: ${error.message}. Please enable location services.</p>`);
+                }
+            );
+        } else {
+            updateInfo('<p class="error">Geolocation is not supported by this browser.</p>');
+        }
+
+        // Fetch OSM data using Overpass API
+        function fetchOSMData() {
+            const query = `
+                [out:json];
+                node(around:100,${mygps.lat},${mygps.lng});
+                out tags 8;
+            `;
+            const url = 'https://overpass-api.de/api/interpreter';
+            fetch(url, {
+                method: 'POST',
+                body: query
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const nodes = data.elements;
+                    if (nodes.length === 0) {
+                        updateInfo('<p>No OSM nodes found nearby.</p>');
+                        return;
+                    }
+                    let html = '<ul>';
+                    nodes.forEach((node, index) => {
+                        const tags = node.tags || {};
+                        const tagList = Object.entries(tags)
+                            .map(([key, value]) => `${key}=${value}`)
+                            .join(', ');
+                        html += `<li><strong>Node ${index + 1}:</strong> ${tagList || 'No tags'}</li>`;
+                        L.marker([node.lat, node.lon])
+                            .addTo(map)
+                            .bindPopup(tagList || 'No tags');
+                    });
+                    html += '</ul>';
+                    updateInfo(html);
+                })
+                .catch(error => {
+                    updateInfo(`<p class="error">Error fetching OSM data: ${error.message}</p>`);
+                });
+        }
+    </script>
 </body>
 </html>
