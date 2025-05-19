@@ -1,6 +1,6 @@
 
 
-determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . on a single responsive web page , centred on $mygps ,show the 20 nearest osm key=value pairs where the osm key is not "highway". also show the values of these key pairs on an osm map using labels and markers which show description and distance from $mygps
+determine the GPS coordinates of my current location from my web browser and assign to variable $mygps . on a single responsive web page display the nearest 20 osm key=value pairs, excluding highway and other infrastructure tags,showing distance from $mygps and for each a URL to a web page which shows walking directions from the location to $mygps
 
 
 
