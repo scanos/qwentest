@@ -3,124 +3,136 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nearest OSM Points with Walking Directions</title>
+  <title>Nearby OSM Points of Interest</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
-  <div class="max-w-4xl w-full bg-white shadow-lg rounded-lg p-6">
-    <h1 class="text-2xl font-bold text-gray-800 mb-4">Nearest OSM Points</h1>
-    <p id="status" class="text-gray-600 mb-4">Fetching your location...</p>
-    <div id="results" class="overflow-x-auto"></div>
+  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl">
+    <h1 class="text-2xl font-bold mb-4 text-center">Nearby Points of Interest</h1>
+    <p id="status" class="text-center mb-4">Requesting your location...</p>
+    <div id="results" class="overflow-x-auto">
+      <table id="poi-table" class="w-full hidden">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2 text-left">Key</th>
+            <th class="p-2 text-left">Value</th>
+            <th class="p-2 text-left">Distance (km)</th>
+            <th class="p-2 text-left">Walking Directions</th>
+          </tr>
+        </thead>
+        <tbody id="poi-body"></tbody>
+      </table>
+    </div>
   </div>
 
   <script>
     // Variable to store user's GPS coordinates
     let $mygps = { lat: null, lon: null };
 
-    // Function to calculate distance using Haversine formula (in meters)
+    // Function to calculate Haversine distance between two points (in km)
     function haversineDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3; // Earth's radius in meters
-      const φ1 = lat1 * Math.PI / 180;
-      const φ2 = lat2 * Math.PI / 180;
-      const Δφ = (lat2 - lat1) * Math.PI / 180;
-      const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const R = 6371; // Earth's radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
     // Function to get user's geolocation
-    function getUserLocation() {
+    function getLocation() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             $mygps.lat = position.coords.latitude;
             $mygps.lon = position.coords.longitude;
-            document.getElementById('status').textContent = `Your location: ${$mygps.lat.toFixed(6)}, ${$mygps.lon.toFixed(6)}`;
+            document.getElementById('status').textContent = `Location: (${$mygps.lat.toFixed(4)}, ${$mygps.lon.toFixed(4)})`;
             fetchOSMData();
           },
           (error) => {
-            document.getElementById('status').textContent = 'Error: Unable to retrieve your location. Please allow location access.';
+            document.getElementById('status').textContent = 'Error: Unable to retrieve location. Please allow location access.';
+            document.getElementById('status').classList.add('text-red-500');
           }
         );
       } else {
-        document.getElementById('status').textContent = 'Error: Geolocation is not supported by your browser.';
+        document.getElementById('status').textContent = 'Error: Geolocation is not supported by this browser.';
+        document.getElementById('status').classList.add('text-red-500');
       }
     }
 
     // Function to fetch OSM data using Overpass API
     async function fetchOSMData() {
-      const radius = 1000; // Search radius in meters
-      const overpassQuery = `
+      const radius = 5000; // 5km radius
+      const excludeTags = ['highway', 'railway', 'aeroway', 'power', 'man_made', 'access', 'destination', 'junction'];
+      const query = `
         [out:json];
-        node(around:${radius},${$mygps.lat},${$mygps.lon});
-        out body;
+        node(around:${radius},${$mygps.lat},${$mygps.lon})
+        ["amenity" | "shop" | "tourism" | "leisure" | "natural" | "historic" | "building"];
+        out 100;
       `;
 
       try {
         const response = await fetch('https://overpass-api.de/api/interpreter', {
           method: 'POST',
-          body: overpassQuery
+          body: query
         });
         const data = await response.json();
 
         // Process OSM nodes
-        const nodes = data.elements
-          .filter(element => element.type === 'node' && element.tags)
-          .map(node => {
-            const keyValue = Object.entries(node.tags)
-              .map(([key, value]) => `${key}=${value}`)
-              .join(', ');
-            return {
-              id: node.id,
-              lat: node.lat,
-              lon: node.lon,
-              keyValue: keyValue || 'No tags',
-              distance: haversineDistance($mygps.lat, $mygps.lon, node.lat, node.lon),
-              directionsUrl: `http://map.project-osrm.org/?z=14&center=${$mygps.lat},${$mygps.lon}&loc=${node.lat},${node.lon}&loc=${$mygps.lat},${$mygps.lon}&hl=en&alt=0&srv=0`
-            };
-          })
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, 20); // Get nearest 20
+        let pois = [];
+        data.elements.forEach(node => {
+          for (const [key, value] of Object.entries(node.tags)) {
+            if (!excludeTags.includes(key)) {
+              pois.push({
+                key,
+                value,
+                lat: node.lat,
+                lon: node.lon,
+                distance: haversineDistance($mygps.lat, $mygps.lon, node.lat, node.lon)
+              });
+            }
+          }
+        });
 
-        displayResults(nodes);
+        // Sort by distance and take top 20
+        pois.sort((a, b) => a.distance - b.distance);
+        pois = pois.slice(0, 20);
+
+        // Display results
+        displayResults(pois);
       } catch (error) {
-        document.getElementById('status').textContent = 'Error: Failed to fetch OSM data.';
+        document.getElementById('status').textContent = 'Error: Unable to fetch OSM data.';
+        document.getElementById('status').classList.add('text-red-500');
       }
     }
 
-    // Function to display results in a table
-    function displayResults(nodes) {
-      const table = `
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-gray-200">
-              <th class="p-2 border">Key=Value</th>
-              <th class="p-2 border">Distance (meters)</th>
-              <th class="p-2 border">Walking Directions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${nodes.map(node => `
-              <tr class="hover:bg-gray-50">
-                <td class="p-2 border">${node.keyValue}</td>
-                <td class="p-2 border">${node.distance.toFixed(2)}</td>
-                <td class="p-2 border">
-                  <a href="${node.directionsUrl}" target="_blank" class="text-blue-600 hover:underline">Get Directions</a>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-      document.getElementById('results').innerHTML = table;
+    // Function to display results in the table
+    function displayResults(pois) {
+      const tableBody = document.getElementById('poi-body');
+      tableBody.innerHTML = '';
+      pois.forEach(poi => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="p-2">${poi.key}</td>
+          <td class="p-2">${poi.value}</td>
+          <td class="p-2">${poi.distance.toFixed(2)}</td>
+          <td class="p-2">
+            <a href="https://www.google.com/maps/dir/?api=1&origin=${poi.lat},${poi.lon}&destination=${$mygps.lat},${$mygps.lon}&travelmode=walking"
+               target="_blank" class="text-blue-500 hover:underline">Get Directions</a>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+      document.getElementById('poi-table').classList.remove('hidden');
+      if (pois.length === 0) {
+        document.getElementById('status').textContent = 'No points of interest found nearby.';
+      }
     }
 
     // Initialize
-    getUserLocation();
+    getLocation();
   </script>
 </body>
 </html>
